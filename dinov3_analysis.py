@@ -182,8 +182,16 @@ def run_chmv2(image_paths: list[str], config: Config, device) -> dict:
         image = Image.open(img_path).convert("RGB")
         orig_w, orig_h = image.size
 
-        # CHMv2 processor handles resizing/normalization
-        inputs = processor(images=image, return_tensors="pt")
+        # Resize to fit in VRAM — CHMv2 DPT head upsamples heavily
+        max_dim = 1024
+        if max(orig_w, orig_h) > max_dim:
+            scale = max_dim / max(orig_w, orig_h)
+            new_w, new_h = int(orig_w * scale), int(orig_h * scale)
+            image_resized = image.resize((new_w, new_h), Image.LANCZOS)
+        else:
+            image_resized = image
+
+        inputs = processor(images=image_resized, return_tensors="pt")
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
         with torch.no_grad():

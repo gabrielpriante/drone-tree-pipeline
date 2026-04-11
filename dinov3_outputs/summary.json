@@ -1,0 +1,120 @@
+{
+  "pipeline": "dinov3_analysis.py",
+  "backbone": "facebook/dinov3-vitl16-pretrain-sat493m",
+  "chmv2_model": "facebook/dinov3-vitl16-chmv2-dpt-head",
+  "images_processed": 7,
+  "images": {
+    "dji_fly_20260306_173428_0001_1772836760073_photo.JPG": {
+      "chmv2_stats": {
+        "max_height_m": NaN,
+        "mean_height_m": Infinity,
+        "pct_canopy_cover": 15.948088963826498,
+        "processing_time_s": 0.73
+      },
+      "gps": {
+        "latitude": 40.104255555555554,
+        "longitude": -76.32035636111111,
+        "altitude_m": 33.604
+      },
+      "n_trees_detected": 206,
+      "tallest_tree_m": Infinity,
+      "mean_tree_height_m": Infinity
+    },
+    "dji_fly_20260306_173520_0004_1772836783152_photo.JPG": {
+      "chmv2_stats": {
+        "max_height_m": NaN,
+        "mean_height_m": Infinity,
+        "pct_canopy_cover": 38.2914384206136,
+        "processing_time_s": 0.39
+      },
+      "gps": {
+        "latitude": 40.10453427777778,
+        "longitude": -76.32005466666666,
+        "altitude_m": 23.504
+      },
+      "n_trees_detected": 117,
+      "tallest_tree_m": Infinity,
+      "mean_tree_height_m": Infinity
+    },
+    "dji_fly_20260306_173552_0005_1772836782939_photo.JPG": {
+      "chmv2_stats": {
+        "max_height_m": NaN,
+        "mean_height_m": Infinity,
+        "pct_canopy_cover": 5.63345750172933,
+        "processing_time_s": 0.38
+      },
+      "gps": {
+        "latitude": 40.104584055555556,
+        "longitude": -76.31994611111111,
+        "altitude_m": 38.604
+      },
+      "n_trees_detected": 70,
+      "tallest_tree_m": Infinity,
+      "mean_tree_height_m": Infinity
+    },
+    "dji_fly_20260307_115944_0010_1772903201779_photo.JPG": {
+      "chmv2_stats": {
+        "max_height_m": NaN,
+        "mean_height_m": Infinity,
+        "pct_canopy_cover": 36.814959843953446,
+        "processing_time_s": 0.44
+      },
+      "gps": {
+        "latitude": 40.10446227777778,
+        "longitude": -76.32013408333333,
+        "altitude_m": 189.162
+      },
+      "n_trees_detected": 192,
+      "tallest_tree_m": Infinity,
+      "mean_tree_height_m": Infinity
+    },
+    "dji_fly_20260307_120030_0011_1772903202068_photo.JPG": {
+      "chmv2_stats": {
+        "max_height_m": NaN,
+        "mean_height_m": Infinity,
+        "pct_canopy_cover": 37.60716120402019,
+        "processing_time_s": 0.42
+      },
+      "gps": {
+        "latitude": 40.10441575,
+        "longitude": -76.32002772222222,
+        "altitude_m": 165.862
+      },
+      "n_trees_detected": 164,
+      "tallest_tree_m": Infinity,
+      "mean_tree_height_m": Infinity
+    },
+    "dji_fly_20260307_120056_0012_1772903202294_photo.JPG": {
+      "chmv2_stats": {
+        "max_height_m": NaN,
+        "mean_height_m": Infinity,
+        "pct_canopy_cover": 19.95333035786947,
+        "processing_time_s": 0.4
+      },
+      "gps": {
+        "latitude": 40.10448227777778,
+        "longitude": -76.32014649999999,
+        "altitude_m": 103.762
+      },
+      "n_trees_detected": 201,
+      "tallest_tree_m": Infinity,
+      "mean_tree_height_m": Infinity
+    },
+    "dji_fly_20260307_120112_0013_1772903202545_photo.JPG": {
+      "chmv2_stats": {
+        "max_height_m": NaN,
+        "mean_height_m": Infinity,
+        "pct_canopy_cover": 37.68348693847656,
+        "processing_time_s": 0.41
+      },
+      "gps": {
+        "latitude": 40.10457705555556,
+        "longitude": -76.32034052777777,
+        "altitude_m": 120.562
+      },
+      "n_trees_detected": 230,
+      "tallest_tree_m": Infinity,
+      "mean_tree_height_m": Infinity
+    }
+  }
+}
