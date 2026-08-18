@@ -47,6 +47,12 @@ inner 1000 px of the canvas at EXPERIMENT resolution. The margin is context
 only and is never scored. Boxes are kept when their centre falls inside the
 scored region.
 
+Matching
+--------
+Cross phase matching is NOT implemented here. It lives in phase_matching.py,
+which imports no model and can be rerun cheaply at other thresholds. There is
+one implementation, used by this script and by every analysis script.
+
 Outputs (all gitignored)
 ------------------------
 phase_boxes_dx###_dy###.csv   per phase detections, scored window coordinates
@@ -67,6 +73,11 @@ from PIL import Image
 from torchvision.ops import nms as tv_nms
 import torch
 from deepforest import main
+
+# Cross phase matching lives in phase_matching.py, which imports no model and
+# can therefore be rerun cheaply at other thresholds. There is exactly one
+# implementation of the clustering, here and in every analysis script.
+import phase_matching as pm
 
 # =========================================================================
 # CONSTANTS
@@ -146,27 +157,18 @@ OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 assert CANVAS_SIZE == WIN_SIZE + 2 * MARGIN, "canvas geometry inconsistent"
 
+# phase_matching.py restates the geometry it needs so it can run standalone.
+# Guard the two copies against drifting apart.
+assert pm.WIN_SIZE == WIN_SIZE, "WIN_SIZE differs from phase_matching"
+assert pm.CORE_INSET == CORE_INSET, "CORE_INSET differs from phase_matching"
+assert pm.GSD_CM == GSD_CM, "GSD_CM differs from phase_matching"
+assert pm.PHASE_OFFSETS == PHASE_OFFSETS, "phase grid differs from phase_matching"
+assert pm.N_PHASES == PHASES_PER_AXIS ** 2, "phase count differs"
+
 
 # =========================================================================
 # geometry helpers
 # =========================================================================
-
-def iou_one_to_many(box, others):
-    """IoU of one [xmin, ymin, xmax, ymax] against an (N, 4) array."""
-    if len(others) == 0:
-        return np.zeros(0)
-    ix1 = np.maximum(box[0], others[:, 0])
-    iy1 = np.maximum(box[1], others[:, 1])
-    ix2 = np.minimum(box[2], others[:, 2])
-    iy2 = np.minimum(box[3], others[:, 3])
-    iw = np.clip(ix2 - ix1, 0, None)
-    ih = np.clip(iy2 - iy1, 0, None)
-    inter = iw * ih
-    area = (box[2] - box[0]) * (box[3] - box[1])
-    areas = (others[:, 2] - others[:, 0]) * (others[:, 3] - others[:, 1])
-    union = area + areas - inter
-    return np.where(union > 0, inter / union, 0.0)
-
 
 def merge_nms(coords, scores, iou_thr):
     """Cross window merge, identical call to DeepForest's mosaic()."""
@@ -281,62 +283,6 @@ def run_phase(model, canvas, dx, dy):
 
 
 # =========================================================================
-# cross phase matching
-# =========================================================================
-
-def cluster_across_phases(pool, n_phases):
-    """Greedy single pass clustering of boxes into crowns.
-
-    Highest scoring unassigned box seeds a cluster. The best IoU unassigned
-    box from each *other* phase joins it at or above MATCH_IOU. At most one
-    box per phase per cluster, so cluster support is a clean 1 to n_phases
-    count.
-    """
-    coords = pool[["xmin", "ymin", "xmax", "ymax"]].to_numpy(dtype=float)
-    scores = pool["score"].to_numpy(dtype=float)
-    phase_id = pool["phase_id"].to_numpy()
-
-    assigned = np.zeros(len(pool), dtype=bool)
-    clusters = []
-
-    for i in np.argsort(scores)[::-1]:
-        if assigned[i]:
-            continue
-        assigned[i] = True
-        members = [i]
-        used = {phase_id[i]}
-
-        ious = iou_one_to_many(coords[i], coords)
-        cand = np.where(~assigned & (ious >= MATCH_IOU))[0]
-        for c in cand[np.argsort(ious[cand])[::-1]]:
-            if phase_id[c] in used:
-                continue
-            assigned[c] = True
-            used.add(phase_id[c])
-            members.append(c)
-
-        m = np.array(members)
-        clusters.append({
-            "n_phases": len(used),
-            "found_in_all": len(used) == n_phases,
-            "mean_score": float(scores[m].mean()),
-            "max_score": float(scores[m].max()),
-            "mean_xmin": float(coords[m, 0].mean()),
-            "mean_ymin": float(coords[m, 1].mean()),
-            "mean_xmax": float(coords[m, 2].mean()),
-            "mean_ymax": float(coords[m, 3].mean()),
-            "mean_width_m": float(
-                (coords[m, 2] - coords[m, 0]).mean() * GSD_CM / 100.0
-            ),
-            "phases": ";".join(sorted(str(p) for p in used)),
-        })
-
-    out = pd.DataFrame(clusters)
-    out.insert(0, "cluster_id", np.arange(len(out)))
-    return out
-
-
-# =========================================================================
 # main
 # =========================================================================
 
@@ -428,14 +374,11 @@ def run_sweep():
 
     pooled = pd.concat(pool, ignore_index=True)
     n_phases = PHASES_PER_AXIS ** 2
-    clusters = cluster_across_phases(pooled, n_phases)
+    # one implementation of the clustering, shared with every analysis script
+    clusters, _ = pm.cluster_across_phases(pooled, MATCH_IOU, n_phases)
     clusters.to_csv(os.path.join(OUT_DIR, "phase_stability.csv"), index=False)
 
-    hist = (
-        clusters["n_phases"].value_counts().sort_index()
-        .rename_axis("n_phases").reset_index(name="n_crowns")
-    )
-    hist["fraction"] = (hist["n_crowns"] / len(clusters)).round(4)
+    hist = pm.support_histogram(clusters, n_phases)
     hist.to_csv(os.path.join(OUT_DIR, "phase_stability_hist.csv"), index=False)
 
     print("")

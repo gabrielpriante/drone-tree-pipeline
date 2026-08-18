@@ -17,7 +17,8 @@ pick a working window, and gate the question at a chosen resolution.
 | `check_tiler_vs_predict_tile.py` | Zero offset sanity check. Runs the hand rolled tiler and `predict_tile()` on the same bare window with identical settings and reports how far they agree. Must pass before the sweep is worth running. Not yet run. |
 | `phase_matching.py` | Shared read only module. Reloads the per phase box CSVs and redoes the clustering at any threshold. Imports no model. |
 | `check_match_sensitivity.py` | Redoes cross phase matching at IoU 0.3, 0.4 and 0.5 and reports distinct crowns, support histogram, and singleton count for each. Tests whether the singleton pile is a clustering artefact. |
-| `draw_support.py` | Draws the core region at one phase with crowns coloured by support band, to see whether singletons are plausible trees or junk on bare ground. |
+| `draw_support.py` | Draws the core region at one phase with crowns coloured by support band, plus a second figure pooling singletons from all 16 phases. |
+| `analyse_support.py` | Box geometry by support band, pattern of support at 4, 8 and 12 against an exact null, axis marginals, and per phase count spread with phase 0 separated. |
 
 Generated outputs (`*.png`, `*_boxes.csv`) are gitignored. Rerun the scripts to
 regenerate them.
@@ -132,27 +133,69 @@ instead.
 
 ## Sweep result, first run
 
-At `MATCH_IOU` 0.5, core region only.
+Core region only. `phase_sweep.py` ran at `MATCH_IOU` 0.5. The matching was
+then redone at 0.4 and 0.3 by `check_match_sensitivity.py`, which reads the
+saved per phase CSVs and loads no model.
 
-| Quantity | Value |
-| --- | --- |
-| core count per phase | min 262, max 288, cv 0.0269 |
-| distinct crowns | 710 |
-| found in all 16 phases | 115, 16.2 percent |
-| found in exactly 1 phase | 196, 27.6 percent |
+| match IoU | distinct crowns | found in all 16 | pct | found in exactly 1 | pct | found in 2 to 15 | pct | median support |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.3 | 591 | 139 | 23.52 | 129 | 21.83 | 323 | 54.65 | 4.0 |
+| 0.4 | 651 | 127 | 19.51 | 167 | 25.65 | 357 | 54.84 | 4.0 |
+| 0.5 | 710 | 115 | 16.20 | 196 | 27.61 | 399 | 56.20 | 4.0 |
 
-The support histogram is U shaped: a pile at 1, a trough from 5 to 14, a spike
-at 16.
+The support histogram is U shaped at every threshold: a pile at 1, a trough
+from 5 to 14, a spike at 16, with a local peak at 4.
 
-Two open questions on that result, neither settled.
+### Two facts that do not depend on the threshold
 
-1. Whether the 196 singletons are a clustering artefact. If a crown shifts
-   between phases and falls below IoU 0.5, one real crown splits into several
-   one phase clusters, inflating both the 710 and the 196.
-   `check_match_sensitivity.py` tests this at 0.3 and 0.4.
-2. Whether the singletons are plausible trees that flicker or junk on bare
-   ground and shadow. Those are different findings. `draw_support.py` is the
-   visual check.
+1. **The 2 to 15 band sits near 55 percent at every threshold**, 54.65, 54.84
+   and 56.20 percent. Most crowns are neither fully stable nor one offs. They
+   appear at some grid positions and not others.
+2. **Median support is exactly 4.0 at every threshold.** The typical crown is
+   found at a quarter of the grid positions.
+
+Neither moves when the matching threshold moves, so neither is an artefact of
+where the matching line was drawn.
+
+### What is threshold sensitive
+
+The singleton count is not stable. It runs 129, 167, 196 as the threshold
+tightens from 0.3 to 0.5, and singletons account for 56.3 percent of the drop
+in distinct crowns from 0.5 to 0.3. Some of the singleton pile at 0.5 is one
+crown split across phases by a strict threshold.
+
+**Quote IoU 0.3 as the conservative case.** At 0.3, 129 crowns, 21.83 percent,
+are found at exactly one of 16 grid positions. That is the floor. The looser
+the threshold, the harder it is to call a singleton an artefact.
+
+The percentage found in all 16 is threshold sensitive in the other direction,
+23.52 at 0.3 down to 16.20 at 0.5. The conservative claim there is 16.20
+percent.
+
+### Visual check
+
+Read from `support_dx000_dy000_iou05.png`: the singletons sit on real crowns,
+not on bare ground or shadow. They are flickering detections, not junk. Boxes
+in the 2 to 15 band look systematically larger and more malformed than the
+support 16 boxes, several spanning multiple crowns and several with extreme
+aspect ratios.
+
+That observation is the reason for `analyse_support.py`. The working hypothesis
+is that the mechanism is not only crowns severed by a tile seam, it is that
+ambiguous multi crown groupings resolve differently depending on where the seam
+falls. The geometry numbers test it.
+
+Caveat on that figure: it drew phase (0, 0) only, so it showed 17 of 196
+singletons, and from the 25 tile regime. `draw_support.py` now defaults to
+`dx075_dy075` and also writes a pooled figure covering all 16 phases.
+
+### Per phase count spread
+
+The spread quoted from the first run, min 262, max 288, cv 0.0269, was taken
+over all 16 phases. It therefore mixes two tiling regimes, see the next
+section. `analyse_support.py` recomputes it over the 15 four tile phases with
+phase (0, 0) quoted separately. **Quote the 15 phase spread as the
+experiment's spread.**
 
 ## Phase 0 is a different tiling regime
 
@@ -194,3 +237,15 @@ Consequences:
 - A clean version of the experiment would either hold tile count fixed across
   phases, for example by choosing a canvas size that admits the same count at
   every offset, or report phase 0 separately.
+
+## Numbers still to be filled in
+
+These are computed by `analyse_support.py` and are not recorded above, because
+they have not been produced yet and are not going to be guessed:
+
+- core count spread and cv over the 15 four tile phases
+- phase (0, 0) core and scored counts quoted separately, with percent excess
+  against the 15 phase mean
+- median width, area and aspect by support band
+- pattern class counts at support 4, 8 and 12 against the exact null
+- the joint distribution of distinct dx by distinct dy

@@ -163,6 +163,20 @@ def cluster_across_phases(pool, match_iou, n_phases=N_PHASES):
     return out, cluster_of
 
 
+def attach_clusters(pool, cluster_of, clusters):
+    """Return a copy of pool with cluster_id and support columns added."""
+    support = clusters["n_phases"].to_numpy()
+    out = pool.copy()
+    out["cluster_id"] = cluster_of
+    out["support"] = support[cluster_of]
+    return out
+
+
+def phase_index(dx, dy):
+    """(dx, dy) offsets to 0 based grid indices (ix, iy)."""
+    return PHASE_OFFSETS.index(int(dx)), PHASE_OFFSETS.index(int(dy))
+
+
 def support_histogram(clusters, n_phases=N_PHASES):
     """Full 1 to n_phases histogram, zeros included."""
     counts = clusters["n_phases"].value_counts()
