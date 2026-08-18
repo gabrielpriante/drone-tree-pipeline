@@ -6,10 +6,22 @@ inference. Answers four things.
 
 1. BOX GEOMETRY BY SUPPORT
    Width, height, area and aspect ratio per crown, related to support count.
-   Tests the hypothesis that unstable detections are systematically larger and
-   more malformed than stable ones. If they are, the mechanism is not only
-   crowns severed by a seam, it is that ambiguous multi crown groupings
-   resolve differently depending on where the seam falls.
+
+   The hypothesis going in was that unstable detections are systematically
+   larger and more malformed than stable ones. HALF OF IT WAS WRONG. First run
+   result:
+
+       width  rho +0.3043    stable crowns are LARGER
+       area   rho +0.3605    stable crowns are LARGER
+       aspect rho -0.4597    stable crowns are LESS elongated
+
+   Band medians: singletons 1.59 m wide, 2.16 m2, aspect 1.72, 43.88 percent
+   above aspect 2. Support 16: 2.49 m, 6.36 m2, aspect 1.05, 0.00 percent
+   above aspect 2.
+
+   So the size hypothesis is refuted and the shape hypothesis is confirmed.
+   Unstable detections are SMALL and ELONGATED, not large and malformed. That
+   is what a crown severed by a tile seam should look like: a sliver.
 
 2. PATTERN OF SUPPORT AT 4, 8 AND 12
    Whether crowns found at exactly 4 phases were found at all four dx offsets
@@ -280,8 +292,17 @@ def report_geometry(crowns):
         r = spearman(crowns["support"], crowns[col])
         print(f"  support vs {label:7s}: rho {r:+.4f}")
     print("")
-    print("Negative rho means the quantity falls as support rises, which is")
-    print("the direction the hypothesis predicts for width, area and aspect.")
+    print("Sign convention: positive rho means the quantity RISES with")
+    print("support, negative means it falls.")
+    print("")
+    print("RESULT OF THE FIRST RUN, recorded so this text is not misread")
+    print("again. The size hypothesis was REFUTED and the shape hypothesis")
+    print("was CONFIRMED:")
+    print("  width  rho +0.3043   stable crowns are LARGER, not smaller")
+    print("  area   rho +0.3605   stable crowns are LARGER, not smaller")
+    print("  aspect rho -0.4597   stable crowns are LESS elongated")
+    print("An earlier version of this note claimed negative was the")
+    print("predicted direction for all three. That was wrong.")
     print("")
     print("Check the seed box columns against the median columns. If they")
     print("disagree in direction, the band difference depends on which member")

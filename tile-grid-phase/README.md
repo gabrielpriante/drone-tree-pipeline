@@ -19,6 +19,7 @@ pick a working window, and gate the question at a chosen resolution.
 | `check_match_sensitivity.py` | Redoes cross phase matching at IoU 0.3, 0.4 and 0.5 and reports distinct crowns, support histogram, and singleton count for each. Tests whether the singleton pile is a clustering artefact. |
 | `draw_support.py` | Draws the core region at one phase with crowns coloured by support band, plus a second figure pooling singletons from all 16 phases. |
 | `analyse_support.py` | Box geometry by support band, pattern of support at 4, 8 and 12 against an exact null, axis marginals, and per phase count spread with phase 0 separated. |
+| `analyse_mechanism.py` | Mechanism tests: elongation axis against sensitivity axis, seam proximity at the samples found versus missed, and Miller spatial variance per cluster. |
 
 Generated outputs (`*.png`, `*_boxes.csv`) are gitignored. Rerun the scripts to
 regenerate them.
@@ -175,15 +176,21 @@ percent.
 ### Visual check
 
 Read from `support_dx000_dy000_iou05.png`: the singletons sit on real crowns,
-not on bare ground or shadow. They are flickering detections, not junk. Boxes
-in the 2 to 15 band look systematically larger and more malformed than the
-support 16 boxes, several spanning multiple crowns and several with extreme
-aspect ratios.
+not on bare ground or shadow. They are flickering detections, not junk.
+
+A second impression from that figure, that the unstable boxes are larger than
+the stable ones, **was wrong and the measurements refuted it.** See the
+correction under Support structure results. Unstable boxes are smaller and more
+elongated. They look larger by eye because they are more elongated, and a few
+long boxes spanning several crowns draw attention away from the many small
+ones.
 
 That observation is the reason for `analyse_support.py`. The working hypothesis
-is that the mechanism is not only crowns severed by a tile seam, it is that
-ambiguous multi crown groupings resolve differently depending on where the seam
-falls. The geometry numbers test it.
+was that ambiguous multi crown groupings resolve differently depending on where
+the seam falls, which predicted large malformed unstable boxes. The measured
+geometry points the other way: unstable detections are small elongated slivers,
+which points at crowns severed by a seam rather than at groupings resolving
+differently. `analyse_mechanism.py` tests that directly.
 
 Caveat on that figure: it drew phase (0, 0) only, so it showed 17 of 196
 singletons, and from the 25 tile regime. `draw_support.py` now defaults to
@@ -238,14 +245,131 @@ Consequences:
   phases, for example by choosing a canvas size that admits the same count at
   every offset, or report phase 0 separately.
 
-## Numbers still to be filled in
+## Terminology
 
-These are computed by `analyse_support.py` and are not recorded above, because
-they have not been produced yet and are not going to be guessed:
+Following Miller, Dayoub, Milford and Sunderhauf, *Evaluating Merging
+Strategies for Sampling-based Uncertainty Techniques in Object Detection*,
+ICRA 2019, arXiv 1809.06006.
 
-- core count spread and cv over the 15 four tile phases
-- phase (0, 0) core and scored counts quoted separately, with percent excess
-  against the 15 phase mean
-- median width, area and aspect by support band
-- pattern class counts at support 4, 8 and 12 against the exact null
-- the joint distribution of distinct dx by distinct dy
+| term | meaning here |
+| --- | --- |
+| sample | one run of the detector over the scene, that is one grid phase. 16 samples. |
+| observation | one detection box produced by one sample. |
+| cluster | a set of observations from different samples judged to be the same underlying object. |
+| support | the number of samples contributing an observation to a cluster, 1 to 16. |
+
+Our clustering is **BSAS** in their taxonomy, Basic Sequential Algorithmic
+Scheme, with **intra sample exclusivity**: at most one observation per sample
+per cluster. That is their best performing configuration. Their semantic
+affinity component does not apply, this problem has one class.
+
+Their spatial affinity threshold is IoU 0.95, appropriate for MC Dropout
+samples over an identical image where boxes are near coincident. Our samples
+come from different tilings, so boxes legitimately shift, which is why our
+threshold is far lower. The 0.3 to 0.5 sweep is the response to their finding
+that results are sensitive to that threshold.
+
+Variable names in the code are unchanged. This is documentation only.
+
+## Related work
+
+- **Miller, Dayoub, Milford and Sunderhauf, ICRA 2019, arXiv 1809.06006.**
+  Merging strategies for sampling based uncertainty in object detection.
+  Source of the clustering taxonomy, the intra sample exclusivity rule, and
+  the spatial variance measure used here.
+- **Zhang and Wang, 2016, arXiv 1611.06467,** *On The Stability of Video
+  Detection and Tracking*. Showed that the stability metric has low
+  correlation with the accuracy metric.
+- **Tung et al., 2022, IEEE Multimedia, arXiv 2207.13890,** *Why Accuracy Is
+  Not Enough: The Need for Consistency in Object Detection*. Reported
+  consistency between 83.2 and 97.1 percent on video.
+
+Those two establish that aggregate metrics hide instability. **Our
+contribution is narrower: the source of the instability is an undisclosed
+inference parameter that practitioners control and never report.**
+
+## Support structure results
+
+At `MATCH_IOU` 0.5, core region only.
+
+### Geometry by support band
+
+| band | median width | median area | median aspect | above aspect 2 |
+| --- | --- | --- | --- | --- |
+| support 1 | 1.59 m | 2.16 m2 | 1.72 | 43.88 percent |
+| support 16 | 2.49 m | 6.36 m2 | 1.05 | 0.00 percent |
+
+Rank correlation with support:
+
+| quantity | rho | reading |
+| --- | --- | --- |
+| width | +0.3043 | stable crowns are LARGER |
+| area | +0.3605 | stable crowns are LARGER |
+| aspect | -0.4597 | stable crowns are LESS elongated |
+
+**Correction on the record.** The hypothesis going in, taken from a visual
+read of the first figure, was that unstable detections are larger and more
+malformed. **The size half is refuted.** Stable detections are larger, not
+smaller. The shape half is confirmed. Unstable detections are small and
+elongated: slivers, which is what a crown severed by a tile seam should look
+like.
+
+### Support 4
+
+| quantity | value |
+| --- | --- |
+| crowns | 86 |
+| structured, not scattered | 74, 86.05 percent |
+| null expectation for structured | 2.42 percent |
+| all_dy_one_dx, sensitive to dx | 40 |
+| all_dx_one_dy, sensitive to dy | 31 |
+| median aspect | 2.23, the highest of any support level |
+| median area | 1.67 m2, the smallest of any support level |
+
+The null is exact, every 4 subset of the 4 by 4 grid enumerated. 86.05 percent
+against 2.42 percent is not a chance pattern.
+
+### Axis marginals
+
+| quantity | value |
+| --- | --- |
+| mean distinct dx per crown | 2.4141 |
+| mean distinct dy per crown | 2.4704 |
+| sign test on discordant pairs, two sided p | 0.313 |
+
+Joint table mass sits in the corners: 196 at (1, 1), 201 at (4, 4), 40 and 31
+at the off corners, middle nearly empty.
+
+### How to state this finding
+
+**Not as anisotropy.** There is no evidence that one axis matters more overall.
+The two single axis classes are roughly balanced, 40 against 31, and the axis
+marginals show no global bias at p 0.313.
+
+**State it as: each crown is sensitive to exactly one axis, and which axis
+varies by crown.** The corner heavy joint table says the same thing. A crown
+is either robust to both axes or hostage to one, with very little in between.
+
+### Per phase count spread
+
+| set | n_core |
+| --- | --- |
+| 15 four tile phases | mean 273.80, cv 0.0245 |
+| phase (0, 0), 25 tiles | 288, 5.19 percent above the 15 phase mean |
+
+**Quote cv 0.0245 over the 15 four tile phases as the experiment's spread.**
+The earlier figure, cv 0.0269 over all 16, mixed two tiling regimes.
+
+The observed 5.19 percent excess sits below the 8.2 percent predicted from
+mean tile coverage in the core. Direction and rough magnitude still agree.
+
+### Still to be produced
+
+`analyse_mechanism.py` has not been run. Pending:
+
+- elongation axis against sensitivity axis, with Fisher exact test
+- seam distance and containment margin at the samples found against missed
+- spatial variance per cluster, and its axis split
+
+Also not recorded above: the 2 to 15 band row of the geometry table, which was
+not in the output that was pasted back.

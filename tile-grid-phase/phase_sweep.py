@@ -164,6 +164,11 @@ assert pm.CORE_INSET == CORE_INSET, "CORE_INSET differs from phase_matching"
 assert pm.GSD_CM == GSD_CM, "GSD_CM differs from phase_matching"
 assert pm.PHASE_OFFSETS == PHASE_OFFSETS, "phase grid differs from phase_matching"
 assert pm.N_PHASES == PHASES_PER_AXIS ** 2, "phase count differs"
+assert pm.PATCH_SIZE == PATCH_SIZE, "PATCH_SIZE differs from phase_matching"
+assert pm.STRIDE == STRIDE, "STRIDE differs from phase_matching"
+assert pm.MARGIN == MARGIN, "MARGIN differs from phase_matching"
+assert pm.CANVAS_SIZE == CANVAS_SIZE, "CANVAS_SIZE differs from phase_matching"
+# the tile grid itself is compared inside run_sweep(), once tile_origins exists
 
 
 # =========================================================================
@@ -292,6 +297,13 @@ def run_sweep():
     print("canvas EXPERIMENT    :", CANVAS_SIZE, "px at",
           f"{GSD_CM:.2f} cm, margin", MARGIN, "px of real imagery")
     print("scored EXPERIMENT    :", WIN_SIZE, "px, inset", CORE_INSET)
+
+    # the analysis scripts locate tile seams from phase_matching's copy of the
+    # grid. Confirm it is the same grid this script actually cuts.
+    for p in PHASE_OFFSETS:
+        assert pm.scored_tile_origins(p) == [
+            o - MARGIN for o in tile_origins(p, CANVAS_SIZE)
+        ], f"phase_matching tile grid differs at phase {p}"
 
     canvas = load_canvas()
     assert canvas.shape[0] == CANVAS_SIZE and canvas.shape[1] == CANVAS_SIZE, \

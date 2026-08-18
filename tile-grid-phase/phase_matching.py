@@ -1,6 +1,34 @@
 """
 Shared cross phase matching, read only.
 
+Terminology
+-----------
+Following Miller, Dayoub, Milford and Sunderhauf, "Evaluating Merging
+Strategies for Sampling-based Uncertainty Techniques in Object Detection",
+ICRA 2019, arXiv 1809.06006.
+
+    sample        one run of the detector over the scene. Here, one grid
+                  phase. 16 samples.
+    observation   one detection box produced by one sample.
+    cluster       a set of observations from different samples judged to be
+                  the same underlying object.
+    support       the number of samples contributing an observation to a
+                  cluster. 1 to 16 here.
+
+The clustering below is BSAS in that taxonomy, Basic Sequential Algorithmic
+Scheme, with intra sample exclusivity: at most one observation per sample per
+cluster. That is their best performing configuration. Their semantic affinity
+component does not apply, this problem has one class.
+
+Their spatial affinity threshold is IoU 0.95, appropriate for MC Dropout
+samples over an identical image, where boxes are near coincident. Our samples
+come from different tilings, so boxes legitimately shift, which is why
+MATCH_IOU here is far lower. The 0.3 to 0.5 sweep in
+check_match_sensitivity.py is the response to their finding that results are
+sensitive to that threshold.
+
+Variable names are unchanged. This is documentation only.
+
 Loads the per phase box CSVs written by phase_sweep.py and redoes the
 clustering. Imports no model and touches no raster, so it is cheap to rerun at
 different thresholds.
@@ -29,6 +57,35 @@ STRIDE = 300
 PHASE_STEP = STRIDE // PHASES_PER_AXIS
 PHASE_OFFSETS = [i * PHASE_STEP for i in range(PHASES_PER_AXIS)]
 N_PHASES = PHASES_PER_AXIS ** 2
+
+# tiling geometry, needed to locate tile seams. EXPERIMENT px.
+PATCH_SIZE = 400
+MARGIN = STRIDE          # real imagery margin, one stride each side
+CANVAS_SIZE = WIN_SIZE + 2 * MARGIN
+
+
+def scored_tile_origins(phase):
+    """Tile origins on one axis, in SCORED WINDOW coordinates.
+
+    Same grid phase_sweep.py cuts, shifted from canvas coordinates into
+    scored window coordinates. Origins can be negative, because tiles reach
+    into the real pixel margin.
+    """
+    return [o - MARGIN
+            for o in range(phase, CANVAS_SIZE - PATCH_SIZE + 1, STRIDE)]
+
+
+def tile_edges(phase):
+    """Every tile boundary line on one axis, scored window coordinates.
+
+    A tile spans [o, o + PATCH_SIZE), so it contributes two boundary lines.
+    Duplicates removed and sorted.
+    """
+    edges = set()
+    for o in scored_tile_origins(phase):
+        edges.add(o)
+        edges.add(o + PATCH_SIZE)
+    return sorted(edges)
 
 # --- recorded sweep result, for drift detection --------------------------
 # From the run at MATCH_IOU 0.5.
