@@ -15,6 +15,9 @@ pick a working window, and gate the question at a chosen resolution.
 | `phase_sweep.py` | The experiment proper. Lays the tiling grid down 16 times at a 4x4 grid of sub-stride phase offsets, holding tile size and overlap ratio fixed, and reports how much the detection set moves. Not yet run. |
 | `check_expanded_window.py` | Confirms the expanded read region used by `phase_sweep.py` is inside the raster and that its margin carries valid alpha on all four sides. Read only. |
 | `check_tiler_vs_predict_tile.py` | Zero offset sanity check. Runs the hand rolled tiler and `predict_tile()` on the same bare window with identical settings and reports how far they agree. Must pass before the sweep is worth running. Not yet run. |
+| `phase_matching.py` | Shared read only module. Reloads the per phase box CSVs and redoes the clustering at any threshold. Imports no model. |
+| `check_match_sensitivity.py` | Redoes cross phase matching at IoU 0.3, 0.4 and 0.5 and reports distinct crowns, support histogram, and singleton count for each. Tests whether the singleton pile is a clustering artefact. |
+| `draw_support.py` | Draws the core region at one phase with crowns coloured by support band, to see whether singletons are plausible trees or junk on bare ground. |
 
 Generated outputs (`*.png`, `*_boxes.csv`) are gitignored. Rerun the scripts to
 regenerate them.
@@ -126,3 +129,68 @@ untrustworthy.
 The check deliberately uses no margin, because `predict_tile()` has no concept
 of one. `phase_sweep.py` prints its own gate drift comparison at phase (0, 0)
 instead.
+
+## Sweep result, first run
+
+At `MATCH_IOU` 0.5, core region only.
+
+| Quantity | Value |
+| --- | --- |
+| core count per phase | min 262, max 288, cv 0.0269 |
+| distinct crowns | 710 |
+| found in all 16 phases | 115, 16.2 percent |
+| found in exactly 1 phase | 196, 27.6 percent |
+
+The support histogram is U shaped: a pile at 1, a trough from 5 to 14, a spike
+at 16.
+
+Two open questions on that result, neither settled.
+
+1. Whether the 196 singletons are a clustering artefact. If a crown shifts
+   between phases and falls below IoU 0.5, one real crown splits into several
+   one phase clusters, inflating both the 710 and the 196.
+   `check_match_sensitivity.py` tests this at 0.3 and 0.4.
+2. Whether the singletons are plausible trees that flicker or junk on bare
+   ground and shadow. Those are different findings. `draw_support.py` is the
+   visual check.
+
+## Phase 0 is a different tiling regime
+
+**Do not pool phase (0, 0) with the other 15 phases without saying so.**
+
+Phase 0 fits 5 tile origins per axis. Every other phase fits 4. The canvas is
+1600 px, the patch is 400 px and the stride is 300 px, so origins run
+`range(phase, 1201, 300)`. At phase 0 that yields 0, 300, 600, 900, 1200. At
+phase 75 the fifth origin would be 1275, which overruns, so only four are
+emitted. Same for 150 and 225.
+
+That is 25 tiles at phase 0 against 16 elsewhere, and the extra tiles raise how
+many times each scored pixel is seen.
+
+| phase | tiles | mean tile coverage, scored | mean tile coverage, core |
+| --- | --- | --- | --- |
+| 0 | 25 | 1.9600 | 1.8726 |
+| 75 | 16 | 1.6900 | 1.7313 |
+| 150 | 16 | 1.6900 | 1.7313 |
+| 225 | 16 | 1.6900 | 1.7313 |
+
+Predicted excess coverage at phase 0 over the others is 16.0 percent in the
+scored region and 8.2 percent in the core. Observed excess in detections is
+14.7 percent scored, 344 against roughly 300, and 5.5 percent core, 288 against
+roughly 273.
+
+Both the direction and the rough magnitude track, and the excess shrinks from
+scored to core in the prediction exactly as it does in the observation. That is
+consistent with tile count being the cause. It is not a controlled test: the
+tile count was not varied independently of the phase, so this is corroboration
+rather than proof.
+
+Consequences:
+
+- Phase 0 sees more of the scored region more often, so it has more chances to
+  detect a given crown and more chances to emit a false positive.
+- Pooling it with the other 15 mixes two tiling regimes. Any per phase spread
+  quoted across all 16, including the cv of 0.0269, carries that mixture.
+- A clean version of the experiment would either hold tile count fixed across
+  phases, for example by choosing a canvas size that admits the same count at
+  every offset, or report phase 0 separately.
