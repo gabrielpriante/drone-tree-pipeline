@@ -12,17 +12,23 @@ pick a working window, and gate the question at a chosen resolution.
 | `find_window.py` | Locates a 2000 px square window centred on the valid (alpha > 0) region of the mosaic and reports percent valid coverage. |
 | `run_gate.py` | Reads the working window, writes it at native and half resolution, runs DeepForest on both, and reports detection count, score distribution and median box width. |
 | `draw_boxes.py` | Overlays the boxes from `run_gate.py` onto the window PNGs for visual inspection. |
-| `phase_sweep.py` | The experiment proper. Lays the tiling grid down 16 times at a 4x4 grid of sub-stride phase offsets, holding tile size and overlap ratio fixed, and reports how much the detection set moves. Not yet run. |
+| `phase_sweep.py` | The experiment proper. Lays the tiling grid down 16 times at a 4x4 grid of sub-stride phase offsets, holding tile size and overlap ratio fixed, and reports how much the detection set moves. Run. |
 | `check_expanded_window.py` | Confirms the expanded read region used by `phase_sweep.py` is inside the raster and that its margin carries valid alpha on all four sides. Read only. |
-| `check_tiler_vs_predict_tile.py` | Zero offset sanity check. Runs the hand rolled tiler and `predict_tile()` on the same bare window with identical settings and reports how far they agree. Must pass before the sweep is worth running. Not yet run. |
+| `check_tiler_vs_predict_tile.py` | Zero offset sanity check. Runs the hand rolled tiler and `predict_tile()` on the same bare window with identical settings and reports how far they agree. Passed: 311 of 311 boxes matched, median matched IoU 0.9344. |
 | `phase_matching.py` | Shared read only module. Reloads the per phase box CSVs and redoes the clustering at any threshold. Imports no model. |
 | `check_match_sensitivity.py` | Redoes cross phase matching at IoU 0.3, 0.4 and 0.5 and reports distinct crowns, support histogram, and singleton count for each. Tests whether the singleton pile is a clustering artefact. |
 | `draw_support.py` | Draws the core region at one phase with crowns coloured by support band, plus a second figure pooling singletons from all 16 phases. |
 | `analyse_support.py` | Box geometry by support band, pattern of support at 4, 8 and 12 against an exact null, axis marginals, and per phase count spread with phase 0 separated. |
 | `analyse_mechanism.py` | Mechanism tests: elongation axis against sensitivity axis, seam proximity at the samples found versus missed, and Miller spatial variance per cluster. |
+| `check_seam_pinning.py` | Tests whether the 71 single axis sensitive detections have a box edge on a grid boundary, against a shuffled null. |
+| `check_seam_pinning_all.py` | The same test over all 710 clusters, reported by support level, with support 1 kept separate from the 2 to 15 band. |
+| `build_figure.py` | Builds the non technical figure from `core_clean.png`. Derives its counts at run time. |
 
 Generated outputs (`*.png`, `*_boxes.csv`) are gitignored. Rerun the scripts to
 regenerate them.
+
+Ground truth annotation follows `tile-grid-phase/ANNOTATION_PROTOCOL.md`,
+written before annotation began.
 
 ## Settled decisions
 
@@ -152,6 +158,8 @@ from 5 to 14, a spike at 16, with a local peak at 4.
 1. **The 2 to 15 band sits near 55 percent at every threshold**, 54.65, 54.84
    and 56.20 percent. Most crowns are neither fully stable nor one offs. They
    appear at some grid positions and not others.
+   That band is not one thing. See Seam mechanism below: supports 2 to 4
+   behave like the singletons, supports 5 to 15 do not and are unexplained.
 2. **Median support is exactly 4.0 at every threshold.** The typical crown is
    found at a quarter of the grid positions.
 
@@ -284,9 +292,25 @@ Variable names in the code are unchanged. This is documentation only.
   Not Enough: The Need for Consistency in Object Detection*. Reported
   consistency between 83.2 and 97.1 percent on video.
 
-Those two establish that aggregate metrics hide instability. **Our
-contribution is narrower: the source of the instability is an undisclosed
-inference parameter that practitioners control and never report.**
+**The Miller hook.** Their spatial variance separates spatially accurate from
+inaccurate observations. The result below says the inaccurate ones here are not
+diffusely uncertain: they are locked to the processing grid, with a box edge
+sitting exactly on a tile boundary. A variance measure cannot see that
+difference. Two detections with identical coordinate variance can be, in one
+case, a real crown the detector localises loosely, and in the other, a fragment
+whose boundary is an artefact of where the grid fell.
+
+Zhang and Wang and Tung et al. establish that aggregate metrics hide
+instability. **Our contribution is sharper and narrower at once: the grid
+position does not merely shift which real trees are found, it determines
+whether a fragment is reported as a tree at all. It does this to two thirds of
+the detections that appear only once, and to none of the detections that appear
+every time.** The parameter that controls it is undisclosed, practitioner
+controlled, and never reported.
+
+**Scope, and it is not optional.** The seam mechanism explains the bottom of
+the distribution. It does not explain the middle. Supports 5 to 15, 164
+clusters, remain unaccounted for.
 
 ## Support structure results
 
@@ -363,13 +387,106 @@ The earlier figure, cv 0.0269 over all 16, mixed two tiling regimes.
 The observed 5.19 percent excess sits below the 8.2 percent predicted from
 mean tile coverage in the core. Direction and rough magnitude still agree.
 
-### Still to be produced
+## Seam mechanism
 
-`analyse_mechanism.py` has not been run. Pending:
+Three claims, each with its own status.
 
-- elongation axis against sensitivity axis, with Fisher exact test
-- seam distance and containment margin at the samples found against missed
-- spatial variance per cluster, and its axis split
+**Severing is refuted, and this does not rest on the centroid measure.** At the
+grid positions where a detection was missed it was better contained inside a
+tile, not worse: median containment margin 130.3292 px missed against 90.6744
+px found. A crown cut by a seam would show the opposite.
 
-Also not recorded above: the 2 to 15 band row of the geometry table, which was
-not in the output that was pasted back.
+**The sign test stands as a statement about the data.** Median distance from
+box centroid to nearest boundary was 4.7736 px where found and 48.5241 px where
+missed, two sided p 8.47e-22. The measurement is correct. The mechanism first
+attached to it was not.
+
+**The positive claim inverts.** These are not detections a seam spared. They
+are fragments the tiling manufactured. `check_seam_pinning.py` compared box
+edges against grid boundaries under a null that holds box size and shuffles
+position: 63 of 71 single axis sensitive clusters have an edge within 1 px of a
+boundary, median edge gap 0.0 px against a null median of 31.4 px, empirical p
+below 1 in 1000.
+
+### Across all 710 clusters
+
+`check_seam_pinning_all.py` extends the test. Measurement moves to the
+observation, since a cluster spanning many grid positions has no single grid:
+gap on x against that observation's own dx grid, gap on y against its dy grid,
+observation gap is the minimum of the two, cluster gap is the median over
+observations. The null is built the same way so the two axis inflation cancels.
+
+The 71 reproduce exactly under the looser rule, 0.8873 pinned, median gap 0.0
+px, so the two statistics reconcile rather than one replacing the other.
+
+| population | clusters | pinned | share | median gap |
+| --- | --- | --- | --- | --- |
+| support 1 | 196 | 136 | 0.694 | 0.13 px |
+| support 2 to 15 | 399 | 166 | 0.416 | 3.60 px |
+| support 16 | 115 | 0 | 0.000 | 12.46 px |
+| all | 710 | 302 | 0.425 | 3.18 px |
+
+| support | clusters | pinned | share | verdict |
+| --- | --- | --- | --- | --- |
+| 1 | 196 | 136 | 0.694 | PINNED |
+| 2 | 79 | 43 | 0.544 | PINNED |
+| 3 | 70 | 48 | 0.686 | PINNED |
+| 4 | 86 | 65 | 0.756 | PINNED |
+| 5 to 15, per level (dagger) | 164 total | 10 total | 0.000 to 0.200 | not reportable |
+| 16 | 115 | 0 | 0.000 | not pinned |
+
+**(dagger) Every level from 5 to 15 has n below 70 and its verdict is not
+reportable.** The null share there collapses to exactly 0.0000, so one pinned
+cluster returns an empirical p of 0 and the script prints PINNED. Per level
+shares and counts are in `seam_pinning_all_by_support.csv`. The verdict column
+is trustworthy only at supports 1 to 4 and at 16.
+
+### The three statements this licenses
+
+1. **96.7 percent of all pinning sits at supports 1 to 4**, 292 of 302 pinned
+   clusters.
+2. **Support 16 is zero of 115.** Not low, zero.
+3. **Supports 5 to 15, 164 clusters with 10 pinned, have no account.** The seam
+   mechanism does not explain them and nothing else does yet.
+
+The 41.6 percent for the 2 to 15 band is correct and misleading if quoted
+alone, because 156 of its 166 pinned clusters sit at supports 2, 3 and 4.
+
+### The 2 to 15 band splits in two
+
+- **Supports 2 to 4**, 235 clusters, 156 pinned, 66.4 percent. These behave
+  like the singletons and share their mechanism.
+- **Supports 5 to 15**, 164 clusters, 10 pinned, 6.1 percent. These do not.
+  Nothing in this repository explains them.
+
+Do not describe the band as one population.
+
+### Singletons
+
+136 of 196 are pinned. At support 1 the instability finding and the seam
+finding are largely one mechanism, not two. The remaining 60 unpinned
+singletons are separate and should not be described alongside the 136.
+
+## Everything here counts detections, not trees
+
+**Over segmentation is uncorrected and unmeasured.** By eye, many detections
+are portions of a tree rather than whole trees, so one tree can be counted more
+than once. Every number in this file, the 710 included, is a count of
+detections. No attempt has been made to correct for it.
+
+No ground truth exists for this window. Nothing here supports a claim about
+accuracy, correctness, precision or recall. The finding is that repeat surveys
+of one photograph disagree with each other.
+
+## The figure
+
+`build_figure.py` writes `figure_same_count_different_trees.png` for a non
+technical reader. Frame is same count, different trees. One population only:
+the 274 detections on the list from a single survey. The 710 union, the 196
+singletons and the 16.20 percent do not appear on it.
+
+**Selection rule for the survey shown.** dx225_dy075, at the median of the
+sixteen on both count and one off detections: 274 against a 15 position mean of
+273.80, and 13 one off detections against a median of 13, min 6, max 17. The
+earlier default dx075_dy075 has 6 one off detections, the fewest of any
+position, and should not be used for anything published.
