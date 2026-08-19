@@ -11,10 +11,19 @@ crown would be unreadable.
     support 2 to 15 amber     found at some positions, not all
     support 1       magenta   found at exactly one position
 
-Default phase is now dx075_dy075, NOT dx000_dy000. Phase 0 runs 25 tiles per
-axis pair against 16 at every other phase, so it is a different tiling regime
-and its singletons may not be representative. Set PHASE_TO_DRAW back to
-dx000_dy000 to compare the two.
+Default phase is dx225_dy075, selected on a stated rule rather than on which
+PNG happened to exist: it is at the median of the sixteen on BOTH core count
+and singleton count. Core count 274 against a 15 phase mean of 273.80, and 13
+singletons against a median of 13, a min of 6 and a max of 17.
+
+dx075_dy075 was the earlier default and should not be used for anything
+published. It has 6 singletons, the fewest of any phase, so it is the most
+flattering phase for the quantity a two band legend already understates.
+
+Phase 0 is a third case again. There are THREE tiling regimes, not two:
+25 tiles at dx000_dy000, 20 tiles at the six phases with exactly one offset
+at zero, and 16 tiles at the remaining nine. dx225_dy075 is in the 16 tile
+group.
 
 Figure B, pooled singletons
 ---------------------------
@@ -61,7 +70,7 @@ DOWNSAMPLE = 2
 
 # --- what to draw --------------------------------------------------------
 # Four tile phase by default. See the module docstring.
-PHASE_TO_DRAW = "dx075_dy075"
+PHASE_TO_DRAW = "dx225_dy075"
 MATCH_IOU = 0.5          # set to 0.3 to see the same picture after merging
 SCALE = 2                # upscale factor, for legible box outlines
 BOX_WIDTH = 2            # px before scaling
@@ -270,6 +279,7 @@ def run():
     print("")
 
     core_img = load_core_image()
+    core_img.save(os.path.join(OUT_DIR, "core_clean.png"))
     font = pick_font(15 * SCALE)
 
     figure_per_phase(core_img, pooled, font)
