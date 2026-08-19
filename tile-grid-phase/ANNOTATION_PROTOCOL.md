@@ -246,6 +246,15 @@ discovered under questioning.
    native 3.89 cm resolution.
 6. The chip is one 73.9 m square window from one orthomosaic at one site in
    one forest type. Nothing generalises beyond it without further work.
+7. The annotation tool permitted only mutually exclusive classes, so class,
+   layer and confidence could not be recorded independently. A box labelled
+   `uncertain` carries no record of whether it was canopy or understory, a box
+   labelled `understory` carries no record of annotator confidence, and a snag
+   that was also uncertain could not be represented at all. The 11 uncertain
+   boxes are therefore a lower bound on annotator uncertainty, not a
+   measurement of it, and the understory and snag counts are lower bounds in
+   the same way. The `certain` subset contains boxes that were never asked
+   about confidence. This is a limitation of the tool, not of the protocol.
 
 ---
 

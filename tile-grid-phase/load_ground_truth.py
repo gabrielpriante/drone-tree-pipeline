@@ -5,10 +5,16 @@ Conversion only. No matching, no scoring, no comparison against detections.
 
 Input
 -----
-`ground_truth/labels_myprojectname_20260819055558.csv`, the export exactly as
-it came out of the annotation tool, 110 boxes on `core_clean.png`. It
-supersedes an earlier 102 box export and is a clean superset: all 102 carried
-over unchanged, 8 added, none removed. The earlier export is not used.
+The single file in `ground_truth/` matching `labels_*.csv`, the export exactly
+as it came out of the annotation tool, 110 boxes on `core_clean.png`. The name
+carries the tool's project name and a timestamp and changes on every re export,
+so it is discovered rather than hardcoded, and the loader refuses to run if
+more than one export is present.
+
+This export supersedes an earlier 102 box export and is a clean superset: all
+102 carried over unchanged, 8 added, none removed. The earlier export is not
+used and must not be left in `ground_truth/`, or the loader will refuse to
+run.
 
     label_name,bbox_x,bbox_y,bbox_width,bbox_height,image_name,image_width,image_height
 
@@ -64,6 +70,7 @@ these boxes to detections. No ground truth claim is available until that is
 done deliberately and separately.
 """
 
+import glob
 import os
 
 import pandas as pd
@@ -74,9 +81,13 @@ WIN_SIZE = 1000          # px, window side at experiment resolution
 CHIP_SIZE = 950          # px, core_clean.png side
 GSD_CM = 7.78            # cm per px at experiment resolution
 
-EDGE_TOL = 1.0           # px. an edge this close to the chip boundary is clipped
+# Box far edges are EXCLUSIVE bounds: bbox_x + bbox_width. A box spanning the
+# full chip has x1 = 950, not 949. So the coordinate space is [0, 950] and the
+# far comparison is against 950. Comparing an exclusive edge against 949 is an
+# off by one and sweeps in boxes ending at 948.
+EDGE_TOL = 1.0           # px, annotation slop
 CHIP_MIN = 0.0
-CHIP_MAX = 949.0         # last addressable chip pixel
+CHIP_MAX = 950.0         # exclusive far bound of the chip
 
 # --- a box we know the answer for, for the direction assert -------------
 # The largest annotation in the export, chip top left (450, 552).
@@ -85,14 +96,37 @@ KNOWN_WINDOW_XY = (475, 577)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GT_DIR = os.path.join(HERE, "ground_truth")
-RAW = os.path.join(GT_DIR, "labels_myprojectname_20260819055558.csv")
 OUT = os.path.join(GT_DIR, "annotations_raw.csv")
+
+# The export filename carries the tool's project name and a timestamp, so it
+# changes on every re export. Discover it rather than hardcoding it, and refuse
+# to guess if there is more than one: a stale export loaded silently is the
+# failure this guards against.
+EXPORT_GLOB = "labels_*.csv"
 
 LABELS = {"tree", "understory", "uncertain", "snag"}
 
 
+def find_export():
+    hits = sorted(glob.glob(os.path.join(GT_DIR, EXPORT_GLOB)))
+    if not hits:
+        raise SystemExit(
+            f"no export matching {EXPORT_GLOB} in {GT_DIR}. "
+            "Put the annotation tool's CSV there."
+        )
+    if len(hits) > 1:
+        names = "\n  ".join(os.path.basename(h) for h in hits)
+        raise SystemExit(
+            f"{len(hits)} files match {EXPORT_GLOB} in {GT_DIR}:\n  {names}\n"
+            "Refusing to guess which is current. Move or delete the stale "
+            "exports, leaving exactly one."
+        )
+    return hits[0]
+
+
 def load():
-    df = pd.read_csv(RAW)
+    raw_path = find_export()
+    df = pd.read_csv(raw_path)
 
     # --- the export is what we think it is -----------------------------
     unknown = set(df["label_name"]) - LABELS
@@ -166,13 +200,14 @@ def load():
     out["height_m"] = (out["ymax"] - out["ymin"]) * g
     out["area_m2"] = out["width_m"] * out["height_m"]
 
-    return df, out
+    return df, out, raw_path
 
 
-def report(df, out):
+def report(df, out, raw_path):
     print("=" * 66)
     print("CONVERSION")
     print("=" * 66)
+    print("export loaded            :", os.path.basename(raw_path))
     print("rows in                  :", len(df))
     print("rows out                 :", len(out))
     print("offset assert            : PASS, chip", KNOWN_CHIP_XY,
@@ -229,12 +264,12 @@ def report(df, out):
 
 
 def main():
-    df, out = load()
+    df, out, raw_path = load()
     cols = ["tree_id", "xmin", "ymin", "xmax", "ymax", "class", "layer",
             "edge_clipped", "confidence", "note", "label_name_as_exported",
             "width_m", "height_m", "area_m2"]
     out[cols].to_csv(OUT, index=False)
-    report(df, out)
+    report(df, out, raw_path)
     print("")
     print("wrote", os.path.relpath(OUT, HERE))
 
