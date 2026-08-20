@@ -528,9 +528,16 @@ Scoring set 1. Fisher exact p 0.384 for all sixteen against some but not all,
 p 1.000 against found once. Spearman -0.083. On scoring set 5: 70.4, 72.6 and
 46.2 percent, Fisher p 0.782 and 0.114, Spearman -0.008.
 
-**The null holds on all five scoring sets.** Smallest Fisher p anywhere is
-0.0753, and the Spearman is negative on all five. See
-`ground_truth/match_metrics.csv`.
+**The null is robust to the choice of scoring set. That is not the same as
+replicating five times.** The five sets are NESTED by construction: the 64 in
+set 1 are a subset of the 73 in set 2, of the 84 in set 3, of the 102 in set 4,
+of all 110 in set 5. They share most of their data, so the sign agreeing across
+all five is close to guaranteed by the overlap and is not five independent
+confirmations.
+
+The smallest Fisher p anywhere in the five is **0.0753, at scoring set 3**. The
+Spearman is negative on all five: -0.0832, -0.0956, -0.0933, -0.0507, -0.0076.
+All five rows are in `ground_truth/match_metrics.csv`.
 
 The null is reported as a sentence rather than a figure, because three bars at
 roughly equal height with a 47.7 point interval on the third invites a reader

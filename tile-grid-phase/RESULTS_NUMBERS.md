@@ -158,8 +158,9 @@ certain, not edge clipped, n 64. Scoring set 5 is all 110.
 | Spearman support vs inside, all five sets | -0.0832 / -0.0956 / -0.0933 / -0.0507 / -0.0076 | `ground_truth/match_metrics.csv` | `spearman_support_vs_inside` |
 | smallest Fisher p anywhere in the five | 0.0753, scoring set 3 | derived from the two columns above | |
 
-The null holds on every scoring set. No p reaches significance and the Spearman
-is negative on all five.
+The null is robust to the choice of scoring set. **The five sets are nested,
+64 within 73 within 84 within 102 within 110, so these are not five independent
+tests.** The smallest Fisher p is 0.0753, at scoring set 3.
 
 ---
 
