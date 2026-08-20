@@ -23,6 +23,9 @@ pick a working window, and gate the question at a chosen resolution.
 | `check_seam_pinning.py` | Tests whether the 71 single axis sensitive detections have a box edge on a grid boundary, against a shuffled null. |
 | `check_seam_pinning_all.py` | The same test over all 710 clusters, reported by support level, with support 1 kept separate from the 2 to 15 band. |
 | `build_figure.py` | Builds the non technical figure from `core_clean.png`. Derives its counts at run time. |
+| `load_ground_truth.py` | Converts the annotation export to the protocol schema. Asserts the chip to window offset rather than trusting it. |
+| `match_ground_truth.py` | Matches detections against annotations. Containment primary, one to one IoU secondary, five nested scoring sets. |
+| `build_results_figures.py` | The three paper figures: support histogram, pinning by support, detections per annotated tree. |
 
 Generated outputs (`*.png`, `*_boxes.csv`) are gitignored. Rerun the scripts to
 regenerate them.
@@ -312,6 +315,11 @@ controlled, and never reported.
 the distribution. It does not explain the middle. Supports 5 to 15, 164
 clusters, remain unaccounted for.
 
+**And a null that belongs beside it.** Stability does not predict whether a
+detection lands on a real tree. See Ground truth and matching. That is a second
+instance of Zhang and Wang's result in a different domain, and it means the
+grid position finding is about reproducibility, not about quality.
+
 ## Support structure results
 
 At `MATCH_IOU` 0.5, core region only.
@@ -467,16 +475,103 @@ Do not describe the band as one population.
 finding are largely one mechanism, not two. The remaining 60 unpinned
 singletons are separate and should not be described alongside the 136.
 
+## Ground truth and matching
+
+110 annotations on `core_clean.png` under `ANNOTATION_PROTOCOL.md`, converted
+by `load_ground_truth.py`, matched by `match_ground_truth.py`. Detections are
+dx225_dy075, 274 in the core. Scoring set 1 is live, canopy, certain, not edge
+clipped, 64 annotations. Scoring set 5 is all 110.
+
+### Over segmentation, measured
+
+**Median 2.0 detections per annotated tree, and 33 of 64 trees carry two or
+more.** Full distribution in `fig_detections_per_tree.png`: 6 with none, 25
+with one, 17 with two, 5 with three, 4 with four, 7 with five or more, tail to
+12. The two trees at 12 are the two largest annotations, 283 and 185 m2.
+
+Containment rule: at least 50 percent of the DETECTION's own area inside the
+annotation. A fragment inside a large crown counts, a box swallowing the crown
+does not.
+
+### The pair the results section turns on
+
+True positive rule: one to one Hungarian assignment at IoU 0.5.
+
+| scoring set | n_ann | TP | precision | recall | F1 | tree rate | det containment |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 64 | 22 | 8.0 | 34.4 | 0.1302 | 90.6 | 50.0 |
+| 5 | 110 | 28 | 10.2 | 25.4 | 0.1458 | 85.5 | 70.4 |
+
+**Recall 34.4 percent against tree level detection rate 90.6 percent.** A
+detector that finds nine of ten annotated trees scores an F1 of 0.13 because it
+reports each of them two or three times.
+
+**These rates have different denominators and different units and must never be
+arithmetically combined.** Precision is per detection under a one to one rule,
+recall is per annotation under the same rule, tree rate is per annotation under
+a containment rule, detection containment is per detection under a containment
+rule.
+
+**Median matched IoU 0.664.** Localisation is not the failure mode. When one
+detection stands for one tree it is a good box. The 42 unmatched annotations
+are trees that were split, not trees found sloppily.
+
+### Stability does not predict correspondence
+
+| band | n | inside an annotation | share |
+| --- | --- | --- | --- |
+| found by all sixteen | 115 | 54 | 47.0 percent |
+| found by some, not all | 146 | 77 | 52.7 percent |
+| found once | 13 | 6 | 46.2 percent |
+
+Scoring set 1. Fisher exact p 0.384 for all sixteen against some but not all,
+p 1.000 against found once. Spearman -0.083. On scoring set 5: 70.4, 72.6 and
+46.2 percent, Fisher p 0.782 and 0.114, Spearman -0.008.
+
+**The null holds on all five scoring sets.** Smallest Fisher p anywhere is
+0.0753, and the Spearman is negative on all five. See
+`ground_truth/match_metrics.csv`.
+
+The null is reported as a sentence rather than a figure, because three bars at
+roughly equal height with a 47.7 point interval on the third invites a reader
+to see a gap that is not there.
+
+### Annotation coverage, and what it forbids
+
+The 110 annotations cover **67.5 percent** of the core by area, the 64 in
+scoring set 1 cover **47.9 percent**.
+
+**Detections outside every annotation cannot be read as false positives.** At
+scoring set 5, 81 of 274 detections fall outside all 110 annotations, and 34 of
+those 81 are support 16 detections agreed on by every survey. Either the
+annotation missed them or they are consistent false positives. This experiment
+cannot distinguish the two.
+
+## Figures
+
+| file | what it shows |
+| --- | --- |
+| `fig_support_histogram.png` | The U shaped support distribution, 710 clusters, median marked at 4.0. |
+| `fig_pinning_by_support.png` | Pinned share by support. A high plateau at 1 to 4 and a floor after, NOT a monotone decline. Sparse levels hatched with n printed. |
+| `fig_detections_per_tree.png` | Detections per annotated tree, scoring set 1, median marked at 2.0. |
+| `figure_same_count_different_trees.png` | The non technical figure. See The figure below. |
+
 ## Everything here counts detections, not trees
 
-**Over segmentation is uncorrected and unmeasured.** By eye, many detections
-are portions of a tree rather than whole trees, so one tree can be counted more
-than once. Every number in this file, the 710 included, is a count of
-detections. No attempt has been made to correct for it.
+**Over segmentation is now measured, and it is uncorrected.** Median 2.0
+detections per annotated tree, 33 of 64 trees carrying two or more. See Ground
+truth and matching. Every number in this file, the 710 included, remains a
+count of DETECTIONS and not of trees, and none of them has been adjusted for
+it. Any tree level claim needs the matching output, not these counts.
 
-No ground truth exists for this window. Nothing here supports a claim about
-accuracy, correctness, precision or recall. The finding is that repeat surveys
-of one photograph disagree with each other.
+Ground truth now exists: 110 annotations, one annotator, no field
+verification, photo interpretation of nadir RGB at 7.78 cm. Precision, recall
+and F1 are therefore available and are reported above, conditional on
+visibility rather than on the true stem population. See `ANNOTATION_PROTOCOL.md`
+section 8 for the full limitation list.
+
+The instability finding does not rest on any of that. Repeat surveys of one
+photograph disagree with each other whether or not the annotation is right.
 
 ## The figure
 

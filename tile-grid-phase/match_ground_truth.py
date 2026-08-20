@@ -57,12 +57,50 @@ For the 274 detections at dx225_dy075, is support associated with landing
 inside an annotated tree? Reported as the contained share for the 115 found by
 all sixteen, the 13 found once, and the 146 in between.
 
-NOT IN THIS RUN
----------------
-No precision, recall or F1. Those need a true positive rule, and whether a
-fragment inside a real tree counts as one is exactly what the primary analysis
-exists to inform. The rule gets stated after the distribution is seen, not
-before, and not here.
+THE TRUE POSITIVE RULE, fixed after the distribution was seen
+--------------------------------------------------------------
+One to one Hungarian assignment at IoU 0.5 is the true positive rule for
+reported precision, recall and F1. That is what the literature reports and it
+is what makes these numbers comparable to other work.
+
+Reported ALONGSIDE it, clearly separated and never folded into any F1:
+
+    tree level detection rate       share of annotated trees with at least one
+                                    detection at 50 percent containment
+    detection level containment     share of detections landing inside some
+                                    annotation
+
+The standard metric looks catastrophic while the containment view shows the
+detector finding trees and splitting them. That tension is not resolved by
+picking one. It is the argument.
+
+THE THREE RATES HAVE DIFFERENT DENOMINATORS AND DIFFERENT UNITS. Precision is
+per detection under a one to one rule. Recall is per annotation under the same
+rule. Tree level detection rate is per annotation under a containment rule.
+Detection level containment is per detection under a containment rule. They
+must never be arithmetically combined, averaged, or fed into a single summary
+score.
+
+ANNOTATION COVERAGE, method recorded because the number is quoted
+------------------------------------------------------------------
+Coverage is computed by rasterisation, not by summing box areas. Annotations
+overlap by design, see protocol 2.3, so summing areas would double count and
+could exceed 100 percent.
+
+Method: a 950 by 950 boolean grid in CHIP coordinates, one cell per chip pixel.
+Every annotation in the scoring set marks its half open span
+[xmin - 25 : xmax - 25] by [ymin - 25 : ymax - 25] as True. Coverage is the
+mean of the grid. Overlap therefore counts once.
+
+The number bounds what a false positive claim could ever mean: a detection
+outside every annotation may be in genuinely unannotated ground.
+
+SUPPORT ASSOCIATION, computed here rather than by hand
+-------------------------------------------------------
+Fisher exact two sided, all sixteen against some but not all, and all sixteen
+against found once. Plus the Spearman of support against the inside indicator
+over all 274 detections. All three on every scoring set, written to
+match_metrics.csv so a rerun regenerates them.
 
 Coordinates
 -----------
@@ -72,6 +110,7 @@ value before any matching runs.
 """
 
 import os
+from math import comb
 
 import numpy as np
 import pandas as pd
@@ -84,6 +123,8 @@ PRIMARY_PHASE = "dx225_dy075"
 CONTAIN_FRAC = 0.50          # of the DETECTION's own area
 IOU_THRESH = 0.50            # secondary, Hungarian
 GSD_M = 7.78 / 100.0
+CORE_INSET = 25              # chip to window offset, phase_matching.py
+CHIP_SIZE = 950              # core_clean.png side, for the coverage raster
 
 # --- the assert. Annotation tree_id 14, the largest box. ----------------
 KNOWN_TREE_ID = 14
@@ -221,6 +262,182 @@ def hungarian_report(ann_df, det, label):
     return n, M
 
 
+def fisher_exact_2x2(a, b, c, d):
+    """Two sided Fisher exact test on [[a, b], [c, d]]."""
+    n = a + b + c + d
+    if n == 0:
+        return float("nan")
+    row1, col1 = a + b, a + c
+
+    def prob(x):
+        y, z = row1 - x, col1 - x
+        w = n - x - y - z
+        if min(x, y, z, w) < 0:
+            return 0.0
+        return comb(row1, x) * comb(n - row1, z) / comb(n, col1)
+
+    po = prob(a)
+    lo = max(0, col1 - (n - row1))
+    hi = min(row1, col1)
+    return min(1.0, sum(prob(x) for x in range(lo, hi + 1)
+                        if prob(x) <= po * 1.0000001))
+
+
+def spearman(x, y):
+    """Rank correlation. Average ranks on ties."""
+    rx = pd.Series(x).rank().to_numpy().astype(float)
+    ry = pd.Series(y).rank().to_numpy().astype(float)
+    rx = rx - rx.mean()
+    ry = ry - ry.mean()
+    den = np.sqrt((rx ** 2).sum() * (ry ** 2).sum())
+    return float((rx * ry).sum() / den) if den else float("nan")
+
+
+def coverage_share(ann_df):
+    """Share of the 950 by 950 chip covered by at least one annotation.
+
+    Rasterised, not summed. Annotations overlap by design, so summing areas
+    would double count. See the module docstring.
+    """
+    g = np.zeros((CHIP_SIZE, CHIP_SIZE), dtype=bool)
+    for _, r in ann_df.iterrows():
+        x0 = int(r["xmin"] - CORE_INSET)
+        y0 = int(r["ymin"] - CORE_INSET)
+        x1 = int(r["xmax"] - CORE_INSET)
+        y1 = int(r["ymax"] - CORE_INSET)
+        g[max(0, y0):min(CHIP_SIZE, y1), max(0, x0):min(CHIP_SIZE, x1)] = True
+    return float(g.mean())
+
+
+def wilson(k, n, z=1.96):
+    """Wilson score interval. Sane at small n, unlike the normal approximation."""
+    if n == 0:
+        return (float("nan"), float("nan"))
+    p = k / n
+    d = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / d
+    h = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / d
+    return (max(0.0, c - h), min(1.0, c + h))
+
+
+def metrics_report(sets, det, det_name):
+    print("=" * 78)
+    print("STANDARD METRICS, true positive rule: Hungarian one to one at IoU "
+          f"{IOU_THRESH}")
+    print("=" * 78)
+    print("THESE THREE RATES HAVE DIFFERENT DENOMINATORS AND DIFFERENT UNITS.")
+    print("Precision is per detection under a one to one rule. Recall is per")
+    print("annotation under the same rule. Tree level detection rate is per")
+    print("annotation under a CONTAINMENT rule. Detection level containment is")
+    print("per detection under a containment rule. NEVER combine them")
+    print("arithmetically, average them, or fold them into one score.")
+    print("")
+
+    a_det = det[["xmin", "ymin", "xmax", "ymax"]].to_numpy(dtype=float)
+    rows = []
+    for name, sub in sets:
+        a_ann = sub[["xmin", "ymin", "xmax", "ymax"]].to_numpy(dtype=float)
+        M = iou_matrix(a_ann, a_det)
+        ri, ci = linear_sum_assignment(-M)
+        tp = int((M[ri, ci] >= IOU_THRESH).sum())
+        prec = tp / len(a_det)
+        rec = tp / len(a_ann)
+        f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+
+        C = contained_matrix(a_ann, a_det) >= CONTAIN_FRAC
+        tree_rate = float((C.sum(axis=1) > 0).mean())
+        det_rate = float((C.sum(axis=0) > 0).mean())
+
+        # --- support association, per scoring set ------------------------
+        inside = C.any(axis=0)
+        sup = det["support"].to_numpy()
+        m16 = sup == pm.N_PHASES
+        mmid = (sup > 1) & (sup < pm.N_PHASES)
+        m1 = sup == 1
+        p_some = fisher_exact_2x2(int(inside[m16].sum()),
+                                  int((~inside[m16]).sum()),
+                                  int(inside[mmid].sum()),
+                                  int((~inside[mmid]).sum()))
+        p_once = fisher_exact_2x2(int(inside[m16].sum()),
+                                  int((~inside[m16]).sum()),
+                                  int(inside[m1].sum()),
+                                  int((~inside[m1]).sum()))
+        rho = spearman(sup.astype(float), inside.astype(float))
+
+        rows.append({
+            "scoring_set": name, "n_ann": len(a_ann), "n_det": len(a_det),
+            "tp": tp,
+            "precision": round(prec, 4), "recall": round(rec, 4),
+            "f1": round(f1, 4),
+            "tree_detection_rate": round(tree_rate, 4),
+            "detection_containment_rate": round(det_rate, 4),
+            "annotation_coverage_share": round(coverage_share(sub), 4),
+            "fisher_p_all16_vs_some": round(p_some, 4),
+            "fisher_p_all16_vs_once": round(p_once, 4),
+            "spearman_support_vs_inside": round(rho, 4),
+        })
+
+    print(f"  {'scoring set':<42s} {'n_ann':>5s} {'TP':>4s} "
+          f"{'prec':>7s} {'recall':>7s} {'F1':>7s} | "
+          f"{'tree rate':>9s} {'det rate':>9s}")
+    for r in rows:
+        print(f"  {r['scoring_set']:<42s} {r['n_ann']:5d} {r['tp']:4d} "
+              f"{r['precision']:7.1%} {r['recall']:7.1%} {r['f1']:7.4f} | "
+              f"{r['tree_detection_rate']:9.1%} "
+              f"{r['detection_containment_rate']:9.1%}")
+    print("")
+    print("")
+    print(f"  {'scoring set':<42s} {'coverage':>9s} {'p vs some':>10s} "
+          f"{'p vs once':>10s} {'spearman':>9s}")
+    for r in rows:
+        print(f"  {r['scoring_set']:<42s} "
+              f"{r['annotation_coverage_share']:9.1%} "
+              f"{r['fisher_p_all16_vs_some']:10.4f} "
+              f"{r['fisher_p_all16_vs_once']:10.4f} "
+              f"{r['spearman_support_vs_inside']:+9.4f}")
+    print("")
+    print("  Coverage is rasterised onto the 950 grid, so overlap counts once.")
+    print("  A detection outside every annotation is not a false positive")
+    print("  while this much of the chip is unannotated.")
+    print("")
+    print("  Reading it: precision and recall describe how often ONE detection")
+    print("  stands for ONE tree. Tree rate describes how often a tree was")
+    print("  found at all. The gap between recall and tree rate is the")
+    print("  fragmentation, and it is the result, not a defect in either")
+    print("  measurement.")
+    print("")
+    return pd.DataFrame(rows)
+
+
+def support_intervals(sets, det):
+    """Wilson intervals on the support bands, to judge whether the null reads
+    as noise or as three genuinely equal numbers."""
+    print("=" * 78)
+    print("SUPPORT BANDS WITH 95 PERCENT WILSON INTERVALS")
+    print("=" * 78)
+    d = det[["xmin", "ymin", "xmax", "ymax"]].to_numpy(dtype=float)
+    sup = det["support"].to_numpy()
+    bands = [("found by all sixteen", sup == pm.N_PHASES),
+             ("found by some, not all", (sup > 1) & (sup < pm.N_PHASES)),
+             ("found once", sup == 1)]
+    rows = []
+    for name, sub in [sets[0], sets[-1]]:
+        a = sub[["xmin", "ymin", "xmax", "ymax"]].to_numpy(dtype=float)
+        inside = (contained_matrix(a, d) >= CONTAIN_FRAC).any(axis=0)
+        print(f"  {name}, n_ann {len(a)}")
+        for label, m in bands:
+            n = int(m.sum())
+            k = int(inside[m].sum())
+            lo, hi = wilson(k, n)
+            print(f"    {label:<24s} {k:4d}/{n:<4d} {k / n:6.1%}   "
+                  f"95% CI [{lo:.1%}, {hi:.1%}]   width {hi - lo:.1%}")
+            rows.append({"scoring_set": name, "band": label, "k": k, "n": n,
+                         "share": round(k / n, 4),
+                         "ci_lo": round(lo, 4), "ci_hi": round(hi, 4)})
+        print("")
+    return pd.DataFrame(rows)
+
+
 # =========================================================================
 # main
 # =========================================================================
@@ -338,6 +555,13 @@ def run():
         k = int(inside5[m].sum())
         print(f"    {label:<26s} {n:5d} {k:7d} {k / n:8.1%}")
     print("")
+
+    mrows = metrics_report(sets, primary, PRIMARY_PHASE)
+    mrows.to_csv(os.path.join(HERE, "ground_truth", "match_metrics.csv"),
+                 index=False)
+    irows = support_intervals(sets, primary)
+    irows.to_csv(os.path.join(HERE, "ground_truth",
+                              "match_support_bands.csv"), index=False)
 
     # --- outputs ---------------------------------------------------------
     out = sub_primary.copy()

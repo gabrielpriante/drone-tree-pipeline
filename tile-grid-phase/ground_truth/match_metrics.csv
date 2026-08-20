@@ -1,0 +1,6 @@
+scoring_set,n_ann,n_det,tp,precision,recall,f1,tree_detection_rate,detection_containment_rate,annotation_coverage_share,fisher_p_all16_vs_some,fisher_p_all16_vs_once,spearman_support_vs_inside
+"1 live canopy certain, not edge clipped",64,274,22,0.0803,0.3438,0.1302,0.9062,0.5,0.4786,0.384,1.0,-0.0832
+2 plus edge clipped,73,274,24,0.0876,0.3288,0.1383,0.9041,0.5657,0.5551,0.1027,0.7766,-0.0956
+3 plus uncertain,84,274,24,0.0876,0.2857,0.1341,0.8452,0.6022,0.5923,0.0753,0.5727,-0.0933
+4 plus understory,102,274,26,0.0949,0.2549,0.1383,0.8431,0.6606,0.6392,0.2911,0.2422,-0.0507
+5 plus snags,110,274,28,0.1022,0.2545,0.1458,0.8545,0.7044,0.6753,0.7822,0.1138,-0.0076

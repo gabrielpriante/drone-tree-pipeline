@@ -1,0 +1,7 @@
+scoring_set,band,k,n,share,ci_lo,ci_hi
+"1 live canopy certain, not edge clipped",found by all sixteen,54,115,0.4696,0.3808,0.5603
+"1 live canopy certain, not edge clipped","found by some, not all",77,146,0.5274,0.4468,0.6066
+"1 live canopy certain, not edge clipped",found once,6,13,0.4615,0.2321,0.7086
+5 plus snags,found by all sixteen,81,115,0.7043,0.6154,0.7801
+5 plus snags,"found by some, not all",106,146,0.726,0.6486,0.7919
+5 plus snags,found once,6,13,0.4615,0.2321,0.7086
