@@ -200,3 +200,206 @@ No other number in this inventory appears twice with different values.
   false positives while a third of the chip is unannotated.
 - Any figure combining precision, recall, tree rate or containment rate
   arithmetically. Different denominators, different units.
+
+---
+
+## Conditional geometry test, shape by support with seam artefacts removed
+
+**Producing script: `analyse_geometry_support.py`. Run date: 2026-08-24.**
+Outputs `geometry_by_support_tier.csv` and `figure_geometry_support.png`.
+Inputs `crown_geometry.csv` and `seam_pinning_all_clusters.csv`, joined on
+`cluster_id`, 710 rows each. Nothing below is a session only value.
+
+The question: does the aspect and area difference between stable and unstable
+detections survive excluding seam pinned clusters? The unconditional rank
+correlation of aspect with support is **-0.4597** (`analyse_support.py`), and
+136 of the 196 singletons are pinned, so that correlation is confounded.
+
+### Design, fixed before any number here was seen
+
+| item | value |
+| --- | --- |
+| unit of analysis | cross phase cluster, denominator 710 |
+| groups tested | support 1 unstable, support 16 stable. 2 to 15 context only, excluded |
+| seam control | exclusion, not regression. pinned = median edge gap <= 1.0 px |
+| Set A, primary | unpinned support 1 + all support 16 |
+| Set B, robustness | all support 1 + all support 16 |
+| primary endpoint | aspect ratio |
+| secondary endpoint | log box area, natural log |
+| multiplicity | Holm across the two endpoints |
+| bootstrap | 10000 resamples, seed 42, stratified within group |
+
+**Sign convention.** Group 1 is support 1, group 2 is support 16.
+`AUC = U1 / (n1 * n2)`, `r_rb = 2 * AUC - 1`, so **r_rb positive means support 1
+scores higher**. The unconditional direction is support 16 lower on aspect, so
+the matching direction is r_rb > 0.
+
+### Analysis set sizes
+
+| set | value | source | column |
+| --- | --- | --- | --- |
+| Set A, unpinned support 1 | 60 | `seam_pinning_all_clusters.csv` | `support` == 1 and `cluster_gap_px` > 1.0 |
+| Set A, all support 16 | 115 | `seam_pinning_all_clusters.csv` | `support` == 16 |
+| Set A total | 175 | derived | |
+| Set B, support 1 and 16 | 311 | `seam_pinning_all_clusters.csv` | `support` in (1, 16) |
+| middle tier 2 to 15, unpinned | 233 | `seam_pinning_all_clusters.csv` | 399 total minus 166 pinned, confirmed off disk |
+
+### Geometry by tier and view
+
+All from `geometry_by_support_tier.csv`, columns `aspect_median`,
+`aspect_iqr`, `log_area_median`, `log_area_iqr`.
+
+| view | tier | n | median aspect | aspect IQR | median log area | log area IQR |
+| --- | --- | --- | --- | --- | --- | --- |
+| all clusters | 1 | 196 | 1.7185 | 1.5680 | 0.7680 | 1.2650 |
+| all clusters | 2 to 15 | 399 | 1.0944 | 1.0924 | 1.3130 | 1.6826 |
+| all clusters | 16 | 115 | 1.0516 | 0.0497 | 1.8502 | 1.5317 |
+| seam removed | 1 | 60 | 1.0645 | 0.0948 | 1.4015 | 1.8843 |
+| seam removed | 2 to 15 | 233 | 1.0504 | 0.0503 | 1.5616 | 1.7802 |
+| seam removed | 16 | 115 | 1.0516 | 0.0497 | 1.8502 | 1.5317 |
+
+**The single number this test turns on.** Median aspect at support 1 falls from
+**1.7185 across all 196 singletons to 1.0645 across the 60 unpinned ones**,
+against 1.0516 at support 16. The elongation that carried the -0.4597
+correlation sits almost entirely in the pinned clusters.
+
+### Primary tests, Set A, Mann Whitney U two sided
+
+| quantity | aspect, PRIMARY | log area, SECONDARY |
+| --- | --- | --- |
+| n support 1 unpinned | 60 | 60 |
+| n support 16 | 115 | 115 |
+| median support 1 | 1.0645 | 1.4015 |
+| median support 16 | 1.0516 | 1.8502 |
+| U | 4217.0 | 2944.0 |
+| p raw | 0.0159756 | 0.112055 |
+| p Holm adjusted | 0.0319512 | 0.112055 |
+| r_rb | +0.2223 | -0.1467 |
+| r_rb 95 pct CI | [+0.0295, +0.4133] | [-0.3270, +0.0409] |
+| AUC | 0.6112 | 0.4267 |
+
+### Decision, applied mechanically by the script
+
+| condition | result |
+| --- | --- |
+| Holm adjusted p < 0.05 on aspect | True, 0.0319512 |
+| \|r_rb\| >= 0.30 | **False, 0.2223** |
+| sign matches, support 16 lower aspect | True, +0.2223 |
+| survives the size matched check | False under the pre-set reading |
+| CI inside +/- 0.20 | False |
+| CI still spans +/- 0.30 | True |
+
+**VERDICT: INCONCLUSIVE.** Not RULED IN, because the effect size misses the
+0.30 bar. Not RULED OUT, because the adjusted p is below 0.05 and the CI is not
+inside +/- 0.20.
+
+**Operationalisation flagged.** The brief did not define "survives the size
+matched check" numerically. Fixed before the numbers were read as: same sign
+AND matched \|r_rb\| >= 0.30. Under the alternative reading, matched p < 0.05
+and same sign, which holds at p 0.0248, **the verdict is still INCONCLUSIVE**,
+because the 0.30 bar on the primary fails either way. The verdict is not
+sensitive to that choice.
+
+### Power, printed regardless of outcome
+
+At 60 versus 115, alpha 0.05 two sided, power is roughly 80 percent to detect
+r_rb of about 0.30, AUC 0.65. **Effects smaller than that cannot be ruled out.**
+The observed +0.2223 sits below that bar, which is exactly why the result is
+inconclusive rather than negative.
+
+### RB1, logistic regression on Set B
+
+Outcome support 16 = 1 against support 1 = 0, n 311, 115 against 196.
+Unpenalised maximum likelihood by IRLS, written out in the script rather than
+called from sklearn, because sklearn 1.8's default path applies L2 shrinkage at
+C = 1.0 and moves the aspect coefficient from -13.7601 to -3.71.
+
+| term | coef | se | z | p | odds ratio |
+| --- | --- | --- | --- | --- | --- |
+| intercept | 13.9975 | 3.1215 | 4.484 | 7.318e-06 | do not quote |
+| log area | 0.5185 | 0.1768 | 2.933 | 0.003356 | 1.6795 |
+| aspect | -13.7601 | 2.8959 | -4.752 | 2.018e-06 | do not quote |
+| median edge gap px | 0.0080 | 0.0137 | 0.581 | 0.5611 | 1.0080 |
+
+**Quasi complete separation on aspect. Read the sign only, never the magnitude
+or the odds ratio.** Support 1 aspect spans 1.0024 to 4.6913, support 16 spans
+1.0030 to 1.2243, so the groups are nearly split by that predictor alone. The
+separation is real structure, not a numerical fault.
+
+Spearman, log area against median edge gap, Set B: **rho +0.4510**, p 5.436e-17.
+At or below 0.6, so **the collinearity warning did not trigger**. Edge gap is
+not a significant predictor once shape and size are in the model, p 0.5611.
+
+### RB2, size matched subsample within Set A
+
+Matched on log area, greedy nearest neighbour, without replacement, processing
+order randomised with seed 42.
+
+| quantity | value |
+| --- | --- |
+| pooled SD of log area in Set A | 0.9094 |
+| caliper, 0.25 SD | 0.2273 log units |
+| matched n, support 1 unpinned | 58 |
+| matched n, support 16 | 58 |
+| support 1 clusters left unmatched | 2 |
+| median log area, matched support 1 | 1.4015 |
+| median log area, matched support 16 | 1.4049 |
+| median aspect, matched support 1 | 1.0693 |
+| median aspect, matched support 16 | 1.0473 |
+| U | 2089.0 |
+| p raw, NOT Holm adjusted | 0.0247967 |
+| r_rb | +0.2420 |
+| r_rb 95 pct CI | [+0.0256, +0.4429] |
+| AUC | 0.6210 |
+
+The effect is not a size artefact: matching on log area to within 0.23 log
+units leaves r_rb essentially unchanged, +0.2420 against +0.2223.
+
+### RB3, sensitivity to the pinning threshold, 1.0 px to 22.29 px
+
+**Sensitivity only. Does NOT override the primary.**
+
+The brief says the exclusion threshold widens, while Set A is defined as
+unpinned support 1 plus ALL support 16. At 1.0 px those readings agree, because
+zero support 16 clusters are pinned. At 22.29 px they diverge, so both are
+recorded and neither is the answer.
+
+| variant | n support 1 | n support 16 | median aspect s1 | median aspect s16 | p raw | r_rb | 95 pct CI | AUC |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| (a) exclusion on both groups | 17 | 3 | 1.0396 | 1.0407 | 0.689474 | +0.1765 | [-0.4118, +0.6873] | 0.5882 |
+| (b) exclusion on support 1 only | 17 | 115 | 1.0396 | 1.0516 | 0.870484 | +0.0251 | [-0.2972, +0.3575] | 0.5125 |
+
+**At 22.29 px the check is uninformative by construction: 112 of the 115
+support 16 clusters have a median edge gap at or below 22.29 px**, so variant
+(a) retains 3 of them and variant (b) applies the exclusion to only one arm.
+The widened threshold does not test the primary, it dissolves the comparison.
+Record this as a limitation of the sensitivity check, not as evidence against
+the primary.
+
+### Figure
+
+`figure_geometry_support.png`, two panels, shared y axis on aspect ratio, three
+support tiers. Panel n values read off the data, not assumed:
+
+| panel | tier 1 | tier 2 to 15 | tier 16 |
+| --- | --- | --- | --- |
+| all clusters | 196 | 399 | 115 |
+| seam artefacts removed | 60 | 233 | 115 |
+
+The 233 was confirmed off disk before drawing and matches the 399 minus 166
+arithmetic. Jitter seed 42. The 2 to 15 tier is grey, shown for context and
+excluded from every test.
+
+### What this does and does not license
+
+- **The unconditional aspect correlation of -0.4597 must not be quoted as a
+  shape finding about stability.** Its dominant component is seam pinning.
+  Median singleton aspect is 1.7185 with pinned clusters in and 1.0645 with
+  them out.
+- **A residual shape difference is not excluded.** r_rb +0.2223, CI +0.0295 to
+  +0.4133, Holm adjusted p 0.0320. The CI excludes zero but the study is not
+  powered to the 0.30 bar the decision rule set.
+- **The size direction is unchanged and is not significant after exclusion.**
+  Log area r_rb -0.1467, Holm adjusted p 0.1121, support 16 still larger. The
+  refutation of the size hypothesis in `analyse_support.py` stands; this test
+  neither strengthens nor weakens it.
