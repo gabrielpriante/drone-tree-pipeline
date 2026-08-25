@@ -26,6 +26,7 @@ pick a working window, and gate the question at a chosen resolution.
 | `load_ground_truth.py` | Converts the annotation export to the protocol schema. Asserts the chip to window offset rather than trusting it. |
 | `match_ground_truth.py` | Matches detections against annotations. Containment primary, one to one IoU secondary, five nested scoring sets. |
 | `build_results_figures.py` | The three paper figures: support histogram, pinning by support, detections per annotated tree. |
+| `analyse_geometry_support.py` | Conditional geometry test: whether footprint shape still separates stable from unstable detections once seam pinned clusters are excluded. Mann Whitney U on aspect and log area, with a size matched check and a threshold sensitivity check. |
 
 Generated outputs (`*.png`, `*_boxes.csv`) are gitignored. Rerun the scripts to
 regenerate them.
@@ -206,7 +207,10 @@ sitting exactly on a grid boundary, and 136 of the 196 singletons are pinned.
 
 Caveat on that figure: it drew phase (0, 0) only, so it showed 17 of 196
 singletons, and from the 25 tile regime. `draw_support.py` now defaults to
-`dx075_dy075` and also writes a pooled figure covering all 16 phases.
+`dx075_dy075` and also writes a pooled figure covering all 16 phases. That
+default is for inspection only: `dx075_dy075` has 6 one off detections, the
+fewest of any position, and must not be used for anything published. See
+Selection rule for the survey shown, under The figure.
 
 ### Per phase count spread
 
@@ -566,6 +570,7 @@ cannot distinguish the two.
 | `fig_pinning_by_support.png` | Pinned share by support. A high plateau at 1 to 4 and a floor after, NOT a monotone decline. Sparse levels hatched with n printed. |
 | `fig_detections_per_tree.png` | Detections per annotated tree, scoring set 1, median marked at 2.0. |
 | `figure_same_count_different_trees.png` | The non technical figure. See The figure below. |
+| `figure_geometry_support.png` | Two panels sharing a y axis, aspect ratio by support tier. All clusters at 196/399/115 and seam artefacts removed at 60/233/115. |
 
 ## Everything here counts detections, not trees
 
