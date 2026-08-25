@@ -199,9 +199,10 @@ ones.
 That observation is the reason for `analyse_support.py`. The working hypothesis
 was that ambiguous multi crown groupings resolve differently depending on where
 the seam falls, which predicted large malformed unstable boxes. The measured
-geometry points the other way: unstable detections are small elongated slivers,
-which points at crowns severed by a seam rather than at groupings resolving
-differently. `analyse_mechanism.py` tests that directly.
+geometry points the other way: unstable detections are small and elongated, and
+the mechanism is seam pinning rather than severing: 63 of 71 have a box edge
+sitting exactly on a grid boundary, and 136 of the 196 singletons are pinned.
+`analyse_mechanism.py` tests that directly.
 
 Caveat on that figure: it drew phase (0, 0) only, so it showed 17 of 196
 singletons, and from the 25 tile regime. `draw_support.py` now defaults to
@@ -337,14 +338,17 @@ Rank correlation with support:
 | --- | --- | --- |
 | width | +0.3043 | stable crowns are LARGER |
 | area | +0.3605 | stable crowns are LARGER |
-| aspect | -0.4597 | stable crowns are LESS elongated |
+| aspect | -0.4597 | UNCONDITIONAL, confounded with seam pinning, see below |
 
 **Correction on the record.** The hypothesis going in, taken from a visual
 read of the first figure, was that unstable detections are larger and more
-malformed. **The size half is refuted.** Stable detections are larger, not
-smaller. The shape half is confirmed. Unstable detections are small and
-elongated: slivers, which is what a crown severed by a tile seam should look
-like.
+malformed. The size half is refuted: stable detections are larger, not smaller.
+The shape half is UNCONDITIONAL and is confounded with seam pinning. Severing
+is refuted: at the surveys where a crown was missed it was better contained
+inside a tile, not worse. The slivers are manufactured by the tiling, not
+severed by it. Once pinned clusters are excluded, median aspect at support 1
+falls from 1.7185 to 1.0645 against 1.0516 at support 16, and the conditional
+effect is r_rb +0.2223, verdict INCONCLUSIVE.
 
 ### Support 4
 
