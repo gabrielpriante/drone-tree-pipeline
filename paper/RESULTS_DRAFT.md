@@ -62,7 +62,12 @@ is not.
 Detections found at exactly four of the sixteen positions are overwhelmingly
 structured rather than scattered: 74 of 86, against an exact null expectation of
 2.42 percent. Of the 74, 40 are recovered at every offset on one axis and a
-single offset on the other, and 31 show the reverse. The axis marginals show no
+single offset on the other, and 31 show the reverse. The remaining 3 occupy two
+by two blocks of offsets, sensitive to both axes at once rather than to one, and
+are the only pattern class at this support level that is not extraordinary
+against the null, at 3 observed against 1.701 expected. Having no single
+sensitive axis, they are excluded from the seam analysis below, which measures
+box edges against the grid on that axis. The axis marginals show no
 global bias, with a mean of 2.4141 distinct x offsets against 2.4704 distinct y
 offsets and a two sided sign test at p 0.313. The finding is that each such
 detection is sensitive to exactly one axis and that which axis varies by
@@ -191,11 +196,14 @@ agreement across offsets.
   scoring set rows and belongs in the LaTeX, not in prose.
 - **Section 4.5 opening** says "a single representative grid position."
   The selection rule (median on count and on one off detections) belongs in
-  Method, not Results. Confirm it is stated there before this sentence ships.
-- **Section 4.3** cites 71 single axis sensitive detections derived from the 86
-  at support 4. The step from 74 structured to 71 single axis is not spelled
-  out in the source docs in a form I could state without inferring. Verify
-  before this ships.
+  Method. RESOLVED AS AN OPEN ITEM: no Methods document exists on disk, so the
+  rule is unwritten rather than misplaced. It must be written into Method
+  before this sentence ships.
+- **Section 4.3, the 74 to 71 step. RESOLVED.** The 3 are `block_2dy_x_2dx`
+  clusters, cluster_ids 348, 534 and 583, confirmed off disk from
+  `support_patterns.csv` and independently from `mechanism_spatial_var.csv`.
+  Composition of the 86 is 40 all_dy_one_dx, 31 all_dx_one_dy, 12 scattered,
+  3 block. The arithmetic is now stated in the body.
 - **The 8 unpinned members of the 71** are omitted here deliberately. They are
   ordinary sized and roughly square and are a different phenomenon. If a
   reviewer asks, they go in a footnote, not the body.
