@@ -51,7 +51,7 @@ Every headline number gets exactly one home. Numbers not listed here are support
 
 | section | numbers |
 | --- | --- |
-| **3 Method** | 11632 x 12458 px, EPSG:32610, 3.89 cm GSD; window col_off 4820 row_off 5260 size 2000; 7.78 cm experiment resolution; gate 1201 vs 311 detections, median box 0.97 m vs 2.10 m; patch 400, overlap 0.25, stride 300; offsets 0/75/150/225; NMS IoU 0.15; MATCH_IOU 0.5; CORE_INSET 25 px; tiler validation 311 of 311, median IoU 0.9344; 110 annotations, 5 nested scoring sets, set 1 = 64 |
+| **3 Method** | 11632 x 12458 px, EPSG:32610, 3.89 cm GSD; window col_off 4820 row_off 5260 size 2000; 7.78 cm experiment resolution; gate 1201 vs 311 detections, median box 0.97 m vs 2.10 m; patch 400, overlap 0.25, stride 300; offsets 0/75/150/225; NMS IoU 0.15; MATCH_IOU 0.5; CORE_INSET 25 px; tiler validation 311 of 311, median IoU 0.9344; **representative position dx225_dy075, selected at the median of the sixteen on core count (274 against a 15 position mean of 273.80) and on one off detections (13 against a median of 13, min 6, max 17)**; 110 annotations, 5 nested scoring sets, set 1 = 64 |
 | **4.1 Counts stable** | mean 273.80, cv 0.0245 over 15 positions; phase 0 = 288, 5.19 percent above; three tiling regimes 25/20/16 tiles at 1/6/9 positions |
 | **4.2 Identities unstable** | 710 clusters; 115 at all 16 (16.20 percent); 196 singletons at IoU 0.5, 129 at 0.3 as the conservative end; median support 4.0; 2 to 15 band near 55 percent at every threshold |
 | **4.3 Seam pinning** | severing refuted, containment margin 130.3292 px missed vs 90.6744 px found; 63 of 71 pinned, median edge gap 0.0 px vs null median 31.4169 px, empirical p < 0.001; 302 of 710 pinned overall; 136 of 196 singletons; 0 of 115 at support 16; 96.7 percent of pinning at supports 1 to 4 (292 of 302) |
@@ -86,7 +86,8 @@ Missing content, by section, with owner.
 | --- | --- | --- |
 | Related Work is three papers (Miller 2019, Zhang and Wang 2016, Tung 2022). Needs 20 to 30 citations from a 50 to 70 paper review. | 2 | Gabe, Elicit set to follow |
 | DeepForest citation and version. Weinstein et al. papers, plus the released checkpoint identifier and package version actually used. | 3 | Gabe, five minutes |
-| Site description: species composition, canopy closure, stem density, acquisition date. | 3 | Methods docx, verify against OFO mission page |
+| Site description: species composition, canopy closure, stem density, acquisition date. | 3 | Gabe, verify against OFO mission page |
+| **Method section has no existing draft.** `Methods_tile_grid_phase.docx` is not on disk anywhere reachable. Section 3 is 1200 words to write from `README.md` and the project doc, not a consolidation. | 3 | Gabe to locate the docx or confirm it is gone |
 | Compute environment and runtime for the 16 phase sweep. | 3 | Gabe |
 | Data and code availability statement. Repo URL, OFO mission link, CC BY 4.0 attribution. | end matter | Gabe |
 | Author list and affiliations. | title block | Gabe and Elizabeth |
@@ -98,7 +99,7 @@ Missing content, by section, with owner.
 ## 7. Order of writing
 
 1. **Results.** Every number exists. Writing it first fixes what the rest of the paper has to introduce and defend.
-2. **Method.** Consolidate from `Methods_tile_grid_phase.docx`, add the geometry test and the resolution inconsistency fix above.
+2. **Method.** Write from `README.md` and the project doc. Add the representative position selection rule, the three tiling regime correction, and the geometry test. Not a consolidation: no prior draft is on disk.
 3. **Limitations.** Material exists across three docs and `LIMITATIONS.md`; this is consolidation, not new writing.
 4. **Future Work.** Three scoped paragraphs: second site, planform segmentation via box prompted masks, 3D crown form via CHM.
 5. **Discussion.** Written once Results and Limitations fix what can be claimed.
