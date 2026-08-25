@@ -13,15 +13,17 @@ inference. Answers four things.
 
        width  rho +0.3043    stable crowns are LARGER
        area   rho +0.3605    stable crowns are LARGER
-       aspect rho -0.4597    stable crowns are LESS elongated
+       aspect rho -0.4597    UNCONDITIONAL, confounded with seam pinning
 
    Band medians: singletons 1.59 m wide, 2.16 m2, aspect 1.72, 43.88 percent
    above aspect 2. Support 16: 2.49 m, 6.36 m2, aspect 1.05, 0.00 percent
    above aspect 2.
 
-   So the size hypothesis is refuted and the shape hypothesis is confirmed.
-   Unstable detections are SMALL and ELONGATED, not large and malformed. That
-   is what a crown severed by a tile seam should look like: a sliver.
+   So the size hypothesis is refuted. The shape association is UNCONDITIONAL
+   and is confounded with seam pinning: the conditional test in
+   analyse_geometry_support.py returned r_rb +0.2223, verdict INCONCLUSIVE.
+   Unstable detections are SMALL and ELONGATED, but severing is refuted and
+   the slivers are manufactured by the tiling, not severed by it.
 
 2. PATTERN OF SUPPORT AT 4, 8 AND 12
    Whether crowns found at exactly 4 phases were found at all four dx offsets
@@ -296,11 +298,12 @@ def report_geometry(crowns):
     print("support, negative means it falls.")
     print("")
     print("RESULT OF THE FIRST RUN, recorded so this text is not misread")
-    print("again. The size hypothesis was REFUTED and the shape hypothesis")
-    print("was CONFIRMED:")
+    print("again. The size hypothesis was REFUTED. The shape association is")
+    print("UNCONDITIONAL and is confounded with seam pinning, see")
+    print("analyse_geometry_support.py: r_rb +0.2223, verdict INCONCLUSIVE.")
     print("  width  rho +0.3043   stable crowns are LARGER, not smaller")
     print("  area   rho +0.3605   stable crowns are LARGER, not smaller")
-    print("  aspect rho -0.4597   stable crowns are LESS elongated")
+    print("  aspect rho -0.4597   UNCONDITIONAL, confounded with pinning")
     print("An earlier version of this note claimed negative was the")
     print("predicted direction for all three. That was wrong.")
     print("")
