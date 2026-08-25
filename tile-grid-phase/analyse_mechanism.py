@@ -17,8 +17,13 @@ axis varies by crown. NOT as anisotropy. There is no evidence that one axis
 matters more overall.
 
 Support 4 crowns also have the highest median aspect of any level, 2.23, and
-the smallest median area, 1.67 m2. Small elongated slivers, which is what a
-seam severed crown should look like.
+the smallest median area, 1.67 m2. Small elongated slivers. The hypothesis
+this script set out to test was that they are crowns severed by a tile seam.
+THAT HYPOTHESIS IS REFUTED. At the surveys where a crown was missed it was
+better contained inside a tile, median containment margin 130.3292 px, than at
+the samples found, 90.6744 px. Severing predicts the opposite. The slivers are
+manufactured by the tiling rather than cut by it: 63 of 71 have a box edge
+sitting exactly on a grid boundary. See check_seam_pinning.py for that result.
 
 Terminology follows Miller et al., ICRA 2019, arXiv 1809.06006: sample,
 observation, cluster, support. See phase_matching.py.
